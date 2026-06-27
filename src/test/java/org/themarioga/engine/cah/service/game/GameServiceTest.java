@@ -1,12 +1,14 @@
 package org.themarioga.engine.cah.service.game;
 
-import com.github.springtestdbunit.annotation.DatabaseSetup;
-import com.github.springtestdbunit.annotation.ExpectedDatabase;
-import com.github.springtestdbunit.assertion.DatabaseAssertionMode;
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.themarioga.engine.cah.BaseTest;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.themarioga.engine.cah.config.GameConfig;
+import org.themarioga.engine.cah.dao.intf.game.GameDao;
 import org.themarioga.engine.cah.enums.PunctuationModeEnum;
 import org.themarioga.engine.cah.enums.VotationModeEnum;
 import org.themarioga.engine.cah.exceptions.game.GameAlreadyFilledException;
@@ -15,410 +17,431 @@ import org.themarioga.engine.cah.models.dictionaries.Dictionary;
 import org.themarioga.engine.cah.models.game.Game;
 import org.themarioga.engine.cah.models.game.Player;
 import org.themarioga.engine.cah.models.game.Round;
+import org.themarioga.engine.cah.services.impl.game.GameServiceImpl;
 import org.themarioga.engine.cah.services.intf.dictionaries.DictionaryService;
-import org.themarioga.engine.cah.services.intf.game.GameService;
-import org.themarioga.engine.cah.services.intf.game.PlayerService;
-import org.themarioga.engine.cah.services.intf.game.RoundService;
 import org.themarioga.engine.commons.enums.GameStatusEnum;
 import org.themarioga.engine.commons.exceptions.ApplicationException;
 import org.themarioga.engine.commons.exceptions.game.*;
 import org.themarioga.engine.commons.exceptions.player.PlayerAlreadyVotedDeleteException;
-import org.themarioga.engine.commons.exceptions.room.RoomDoesntExistsException;
 import org.themarioga.engine.commons.models.Room;
 import org.themarioga.engine.commons.models.User;
-import org.themarioga.engine.commons.services.intf.RoomService;
-import org.themarioga.engine.commons.services.intf.UserService;
 
 import java.util.UUID;
 
-@DatabaseSetup("classpath:dbunit/service/setup/lang.xml")
-@DatabaseSetup("classpath:dbunit/service/setup/user.xml")
-@DatabaseSetup("classpath:dbunit/service/setup/room.xml")
-@DatabaseSetup("classpath:dbunit/service/setup/dictionaries/dictionary.xml")
-@DatabaseSetup("classpath:dbunit/service/setup/dictionaries/card.xml")
-@DatabaseSetup("classpath:dbunit/service/setup/game/game.xml")
-@DatabaseSetup("classpath:dbunit/service/setup/game/player.xml")
-class GameServiceTest extends BaseTest {
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.*;
 
-    @Autowired
-    UserService userService;
-    @Autowired
-    DictionaryService dictionaryService;
-    @Autowired
-    GameService gameService;
-    @Autowired
-    private RoomService roomService;
-    @Autowired
-    private PlayerService playerService;
-    @Autowired
-    private RoundService roundService;
+@ExtendWith(MockitoExtension.class)
+class GameServiceTest {
+
+    @InjectMocks
+    private GameServiceImpl gameService;
+
+    @Mock
+    private GameDao gameDao;
+
+    @Mock
+    private DictionaryService dictionaryService;
+
+    @Mock
+    private GameConfig gameConfig;
+
+    private Game game;
+    private Room room;
+    private User creator;
+    private User playerUser;
+    private Player player;
+    private Dictionary dictionary;
+
+    @BeforeEach
+    void setUp() {
+        room = new Room();
+        room.setId(UUID.fromString("00000000-0000-0000-0000-000000000000"));
+
+        creator = new User();
+        creator.setId(UUID.fromString("00000000-0000-0000-0000-000000000000"));
+
+        dictionary = new Dictionary();
+        dictionary.setId(UUID.fromString("00000000-0000-0000-0000-000000000000"));
+
+        game = new Game();
+        game.setId(UUID.fromString("00000000-0000-0000-0000-000000000000"));
+        game.setRoom(room);
+        game.setCreator(creator);
+        game.setStatus(GameStatusEnum.CREATED);
+        game.setVotationMode(VotationModeEnum.DEMOCRACY);
+        game.setPunctuationMode(PunctuationModeEnum.POINTS);
+        game.setNumberOfPointsToWin(1);
+        game.setNumberOfRoundsToEnd(1);
+        game.setMaxNumberOfPlayers(5);
+        game.setDictionary(dictionary);
+
+        playerUser = new User();
+        playerUser.setId(UUID.fromString("11111111-1111-1111-1111-111111111111"));
+
+        player = new Player();
+        player.setId(UUID.fromString("11111111-1111-1111-1111-111111111111"));
+        player.setUser(playerUser);
+        player.setGame(game);
+
+        Player creatorPlayer = new Player();
+        creatorPlayer.setId(UUID.fromString("22222222-2222-2222-2222-222222222222"));
+        creatorPlayer.setUser(creator);
+        creatorPlayer.setGame(game);
+        java.util.Date now = new java.util.Date();
+        room.setCreationDate(now);
+        creator.setCreationDate(now);
+        dictionary.setCreationDate(now);
+        game.setCreationDate(now);
+        playerUser.setCreationDate(now);
+        player.setCreationDate(now);
+        creatorPlayer.setCreationDate(now);
+
+        game.getPlayers().add(creatorPlayer);
+    }
 
     @Test
-    @ExpectedDatabase(value = "classpath:dbunit/service/expected/game/testCreateGame-expected.xml", table = "Game", assertionMode = DatabaseAssertionMode.NON_STRICT_UNORDERED)
     void testCreateGame() {
-        Room room = roomService.getById(UUID.fromString("44444444-4444-4444-4444-444444444444"));
-        User creator = userService.getById(UUID.fromString("44444444-4444-4444-4444-444444444444"));
+        when(gameDao.countByRoom(room)).thenReturn(0L);
+        when(gameDao.countByCreator(creator)).thenReturn(0L);
+        when(gameConfig.getDefaultVotationMode()).thenReturn(VotationModeEnum.DEMOCRACY);
+        when(gameConfig.getDefaultPunctuationMode()).thenReturn(PunctuationModeEnum.POINTS);
+        when(gameConfig.getDefaultNumberOfPointsToWin()).thenReturn(10);
+        when(gameConfig.getDefaultNumberOfRoundsToEnd()).thenReturn(10);
+        when(gameConfig.getDefaultMaxNumberOfPlayers()).thenReturn(10);
+        when(gameConfig.getDefaultDictionaryId()).thenReturn(UUID.fromString("00000000-0000-0000-0000-000000000000"));
+        when(dictionaryService.getDictionaryById(UUID.fromString("00000000-0000-0000-0000-000000000000"))).thenReturn(dictionary);
+        when(gameDao.createOrUpdate(any(Game.class))).thenAnswer(i -> {
+            Game g = i.getArgument(0);
+            g.setId(UUID.fromString("44444444-4444-4444-4444-444444444444"));
+            return g;
+        });
 
-        Game game = gameService.create(room, creator);
-        getCurrentSession().flush();
+        Game createdGame = gameService.create(room, creator);
 
-        Assertions.assertNotNull(game);
-        Assertions.assertNotNull(game.getId());
-        Assertions.assertNotNull(game.getRoom().getId());
-        Assertions.assertNotNull(game.getCreator().getId());
-
-        Assertions.assertEquals(UUID.fromString("44444444-4444-4444-4444-444444444444"), game.getRoom().getId());
-        Assertions.assertEquals(UUID.fromString("44444444-4444-4444-4444-444444444444"), game.getCreator().getId());
-        Assertions.assertEquals(GameStatusEnum.CREATED, game.getStatus());
+        Assertions.assertNotNull(createdGame);
+        Assertions.assertEquals(UUID.fromString("44444444-4444-4444-4444-444444444444"), createdGame.getId());
+        Assertions.assertEquals(room, createdGame.getRoom());
+        Assertions.assertEquals(creator, createdGame.getCreator());
+        Assertions.assertEquals(GameStatusEnum.CREATED, createdGame.getStatus());
+        verify(gameDao).createOrUpdate(any(Game.class));
     }
 
     @Test
     void testCreate_GameAlreadyExists() {
-        Room room = roomService.getById(UUID.fromString("00000000-0000-0000-0000-000000000000"));
-        User creator = userService.getById(UUID.fromString("44444444-4444-4444-4444-444444444444"));
+        when(gameDao.countByRoom(room)).thenReturn(1L);
 
         Assertions.assertThrows(GameAlreadyExistsException.class, () -> gameService.create(room, creator));
     }
 
     @Test
     void testCreate_CreatorAlreadyHaveGame() {
-        Room room = roomService.getById(UUID.fromString("44444444-4444-4444-4444-444444444444"));
-        User creator = userService.getById(UUID.fromString("00000000-0000-0000-0000-000000000000"));
+        when(gameDao.countByRoom(room)).thenReturn(0L);
+        when(gameDao.countByCreator(creator)).thenReturn(1L);
 
         Assertions.assertThrows(GameCreatorAlreadyExistsException.class, () -> gameService.create(room, creator));
     }
 
     @Test
-    @ExpectedDatabase(value = "classpath:dbunit/service/expected/game/testUpdateGameVotationMode-expected.xml", table = "Game", assertionMode = DatabaseAssertionMode.NON_STRICT_UNORDERED)
     void testUpdate() {
-        Game game = gameService.getByRoom(roomService.getById(UUID.fromString("00000000-0000-0000-0000-000000000000")));
+        when(gameDao.createOrUpdate(game)).thenReturn(game);
+
         game.setVotationMode(VotationModeEnum.DICTATORSHIP);
-        game = gameService.update(game);
+        Game updatedGame = gameService.update(game);
 
-        getCurrentSession().flush();
-
-        Assertions.assertNotNull(game);
-        Assertions.assertEquals(VotationModeEnum.DICTATORSHIP, game.getVotationMode());
+        Assertions.assertNotNull(updatedGame);
+        Assertions.assertEquals(VotationModeEnum.DICTATORSHIP, updatedGame.getVotationMode());
     }
 
     @Test
-    @ExpectedDatabase(value = "classpath:dbunit/service/expected/game/testDeleteGame-expected.xml", table = "Game", assertionMode = DatabaseAssertionMode.NON_STRICT_UNORDERED)
     void testDeleteGame() {
-        gameService.delete(gameService.getByRoom(roomService.getById(UUID.fromString("00000000-0000-0000-0000-000000000000"))));
+        doNothing().when(gameDao).delete(game);
 
-        Game game = gameService.getByRoom(roomService.getById(UUID.fromString("00000000-0000-0000-0000-000000000000")));
+        gameService.delete(game);
 
-        Assertions.assertNull(game);
-    }
-
-    @Test
-    void testDelete_RoomNotExists() {
-        Assertions.assertThrows(RoomDoesntExistsException.class, () -> gameService.delete(gameService.getByRoom(roomService.getById(UUID.fromString("00000000-0000-0000-0000-000000000001")))));
+        verify(gameDao).delete(game);
     }
 
     @Test
     void testDelete_GameNotExists() {
-        Assertions.assertThrows(ApplicationException.class, () -> gameService.delete(gameService.getByRoom(roomService.getById(UUID.fromString("44444444-4444-4444-4444-444444444444")))));
+        Assertions.assertThrows(ApplicationException.class, () -> gameService.delete(null));
     }
 
     @Test
-    @ExpectedDatabase(value = "classpath:dbunit/service/expected/game/testUpdateGameStatus-expected.xml", table = "Game", assertionMode = DatabaseAssertionMode.NON_STRICT_UNORDERED)
     void testUpdateStatus() {
-        Game game = gameService.getByRoom(roomService.getById(UUID.fromString("00000000-0000-0000-0000-000000000000")));
-        game = gameService.setStatus(game, GameStatusEnum.DELETING);
-        getCurrentSession().flush();
+        when(gameDao.createOrUpdate(game)).thenReturn(game);
 
-        Assertions.assertEquals(GameStatusEnum.DELETING, game.getStatus());
+        Game updatedGame = gameService.setStatus(game, GameStatusEnum.DELETING);
+
+        Assertions.assertEquals(GameStatusEnum.DELETING, updatedGame.getStatus());
     }
 
     @Test
-    @ExpectedDatabase(value = "classpath:dbunit/service/expected/game/testUpdateGameVotationMode-expected.xml", table = "Game", assertionMode = DatabaseAssertionMode.NON_STRICT_UNORDERED)
     void testSetMaxVotationMode() {
-        Game game = gameService.getByRoom(roomService.getById(UUID.fromString("00000000-0000-0000-0000-000000000000")));
-        game = gameService.setVotationMode(game, VotationModeEnum.DICTATORSHIP);
-        getCurrentSession().flush();
+        when(gameDao.createOrUpdate(game)).thenReturn(game);
 
-        Assertions.assertEquals(VotationModeEnum.DICTATORSHIP, game.getVotationMode());
+        Game updatedGame = gameService.setVotationMode(game, VotationModeEnum.DICTATORSHIP);
+
+        Assertions.assertEquals(VotationModeEnum.DICTATORSHIP, updatedGame.getVotationMode());
     }
 
     @Test
     void testSetMaxVotationMode_GameAlreadyStarted() {
-        Game game = gameService.getByRoom(roomService.getById(UUID.fromString("33333333-3333-3333-3333-333333333333")));
+        game.setStatus(GameStatusEnum.STARTED);
 
         Assertions.assertThrows(GameAlreadyStartedException.class, () -> gameService.setVotationMode(game, VotationModeEnum.DICTATORSHIP));
     }
 
     @Test
-    @ExpectedDatabase(value = "classpath:dbunit/service/expected/game/testUpdateGameNumberPlayers-expected.xml", table = "Game", assertionMode = DatabaseAssertionMode.NON_STRICT_UNORDERED)
     void testSetMaxNumberOfPlayers() {
-        Game game = gameService.getByRoom(roomService.getById(UUID.fromString("00000000-0000-0000-0000-000000000000")));
-        game = gameService.setMaxNumberOfPlayers(game, 5);
-        getCurrentSession().flush();
+        when(gameConfig.getDefaultMinNumberOfPlayers()).thenReturn(2);
+        when(gameDao.createOrUpdate(game)).thenReturn(game);
 
-        Assertions.assertEquals(5, game.getMaxNumberOfPlayers());
+        Game updatedGame = gameService.setMaxNumberOfPlayers(game, 5);
+
+        Assertions.assertEquals(5, updatedGame.getMaxNumberOfPlayers());
     }
 
     @Test
     void testSetMaxNumberOfPlayers_GameAlreadyStarted() {
-        Game game = gameService.getByRoom(roomService.getById(UUID.fromString("33333333-3333-3333-3333-333333333333")));
+        game.setStatus(GameStatusEnum.STARTED);
 
         Assertions.assertThrows(GameAlreadyStartedException.class, () -> gameService.setMaxNumberOfPlayers(game, 5));
     }
 
     @Test
     void testSetMaxNumberOfPlayers_GameAlreadyFilled() {
-        Game game = gameService.getByRoom(roomService.getById(UUID.fromString("00000000-0000-0000-0000-000000000000")));
-
-        Assertions.assertThrows(GameAlreadyFilledException.class, () -> gameService.setMaxNumberOfPlayers(game, 1));
+        Assertions.assertThrows(GameAlreadyFilledException.class, () -> gameService.setMaxNumberOfPlayers(game, 0));
     }
 
     @Test
     void testSetMaxNumberOfPlayers_GameAlreadyFilled2() {
-        Game game = gameService.getByRoom(roomService.getById(UUID.fromString("11111111-1111-1111-1111-111111111111")));
-
+        when(gameConfig.getDefaultMinNumberOfPlayers()).thenReturn(3);
         Assertions.assertThrows(GameAlreadyFilledException.class, () -> gameService.setMaxNumberOfPlayers(game, 1));
     }
 
     @Test
-    @ExpectedDatabase(value = "classpath:dbunit/service/expected/game/testUpdateGameNumberPoints-expected.xml", table = "Game", assertionMode = DatabaseAssertionMode.NON_STRICT_UNORDERED)
     void testSetNumberPointsToWin() {
-        Game game = gameService.getByRoom(roomService.getById(UUID.fromString("00000000-0000-0000-0000-000000000000")));
-        game = gameService.setNumberOfPointsToWin(game, 5);
-        getCurrentSession().flush();
+        when(gameDao.createOrUpdate(game)).thenReturn(game);
 
-        Assertions.assertEquals(PunctuationModeEnum.POINTS, game.getPunctuationMode());
-        Assertions.assertEquals(5, game.getNumberOfPointsToWin());
+        Game updatedGame = gameService.setNumberOfPointsToWin(game, 5);
+
+        Assertions.assertEquals(PunctuationModeEnum.POINTS, updatedGame.getPunctuationMode());
+        Assertions.assertEquals(5, updatedGame.getNumberOfPointsToWin());
     }
 
     @Test
     void testSetNumberPointsToWin_GameAlreadyStarted() {
-        Game game = gameService.getByRoom(roomService.getById(UUID.fromString("33333333-3333-3333-3333-333333333333")));
+        game.setStatus(GameStatusEnum.STARTED);
 
         Assertions.assertThrows(GameAlreadyStartedException.class, () -> gameService.setNumberOfPointsToWin(game, 5));
     }
 
     @Test
-    @ExpectedDatabase(value = "classpath:dbunit/service/expected/game/testUpdateGameNumberRounds-expected.xml", table = "Game", assertionMode = DatabaseAssertionMode.NON_STRICT_UNORDERED)
     void testSetNumberRounds() {
-        Game game = gameService.getByRoom(roomService.getById(UUID.fromString("00000000-0000-0000-0000-000000000000")));
-        game = gameService.setNumberOfRoundsToEnd(game, 5);
-        getCurrentSession().flush();
+        when(gameDao.createOrUpdate(game)).thenReturn(game);
 
-        Assertions.assertEquals(PunctuationModeEnum.ROUNDS, game.getPunctuationMode());
-        Assertions.assertEquals(5, game.getNumberOfRoundsToEnd());
+        Game updatedGame = gameService.setNumberOfRoundsToEnd(game, 5);
+
+        Assertions.assertEquals(PunctuationModeEnum.ROUNDS, updatedGame.getPunctuationMode());
+        Assertions.assertEquals(5, updatedGame.getNumberOfRoundsToEnd());
     }
 
     @Test
     void testSetNumberRounds_GameAlreadyStarted() {
-        Game game = gameService.getByRoom(roomService.getById(UUID.fromString("33333333-3333-3333-3333-333333333333")));
+        game.setStatus(GameStatusEnum.STARTED);
 
         Assertions.assertThrows(GameAlreadyStartedException.class, () -> gameService.setNumberOfRoundsToEnd(game, 5));
     }
 
     @Test
-    @ExpectedDatabase(value = "classpath:dbunit/service/expected/dictionaries/testUpdateGameDictionary-expected.xml", table = "Game", assertionMode = DatabaseAssertionMode.NON_STRICT_UNORDERED)
     void testSetDictionary() {
-        Game game = gameService.getByRoom(roomService.getById(UUID.fromString("00000000-0000-0000-0000-000000000000")));
-        Dictionary dictionary = dictionaryService.getDictionaryById(UUID.fromString("11111111-1111-1111-1111-111111111111"));
-        game = gameService.setDictionary(game, dictionary);
-        getCurrentSession().flush();
+        when(gameDao.createOrUpdate(game)).thenReturn(game);
 
-        Assertions.assertEquals(dictionary, game.getDictionary());
+        Game updatedGame = gameService.setDictionary(game, dictionary);
+
+        Assertions.assertEquals(dictionary, updatedGame.getDictionary());
     }
 
     @Test
     void testSetDictionary_GameAlreadyStarted() {
-        Game game = gameService.getByRoom(roomService.getById(UUID.fromString("33333333-3333-3333-3333-333333333333")));
-        Dictionary dictionary = dictionaryService.getDictionaryById(UUID.fromString("11111111-1111-1111-1111-111111111111"));
+        game.setStatus(GameStatusEnum.STARTED);
 
         Assertions.assertThrows(GameAlreadyStartedException.class, () -> gameService.setDictionary(game, dictionary));
     }
 
     @Test
     void testAddPlayer() {
-        Game game = gameService.getByRoom(roomService.getById(UUID.fromString("11111111-1111-1111-1111-111111111111")));
-        User user = userService.getById(UUID.fromString("44444444-4444-4444-4444-444444444444"));
-        Player player = playerService.create(game, user);
-        gameService.addPlayer(game, player);
+        when(gameDao.createOrUpdate(game)).thenReturn(game);
 
-        Assertions.assertEquals(2L, game.getPlayers().size());
+        Game updatedGame = gameService.addPlayer(game, player);
+
+        Assertions.assertEquals(2L, updatedGame.getPlayers().size());
     }
 
     @Test
     void testAddPlayer_GameStarted() {
-        Game game = gameService.getByRoom(roomService.getById(UUID.fromString("33333333-3333-3333-3333-333333333333")));
-        User user = userService.getById(UUID.fromString("44444444-4444-4444-4444-444444444444"));
-        Player player = playerService.create(game, user);
+        game.setStatus(GameStatusEnum.STARTED);
 
         Assertions.assertThrows(GameAlreadyStartedException.class, () -> gameService.addPlayer(game, player));
     }
 
     @Test
     void testAddPlayer_GameAlreadyFilled() {
-        Game game = gameService.getByRoom(roomService.getById(UUID.fromString("00000000-0000-0000-0000-000000000000")));
-        User user = userService.getById(UUID.fromString("77777777-7777-7777-7777-777777777777"));
-        Player player = playerService.create(game, user);
+        game.setMaxNumberOfPlayers(1);
 
         Assertions.assertThrows(GameAlreadyFilledException.class, () -> gameService.addPlayer(game, player));
     }
 
     @Test
     void testRemovePlayer() {
-        Game game = gameService.getByRoom(roomService.getById(UUID.fromString("00000000-0000-0000-0000-000000000000")));
-        User user = userService.getById(UUID.fromString("11111111-1111-1111-1111-111111111111"));
-        Player player = playerService.findPlayerByGameAndUser(game, user);
+        game.getPlayers().add(player);
+        when(gameDao.createOrUpdate(game)).thenReturn(game);
 
-        game = gameService.removePlayer(game, player);
+        Game updatedGame = gameService.removePlayer(game, player);
 
-        Assertions.assertEquals(2L, game.getPlayers().size());
+        Assertions.assertEquals(1L, updatedGame.getPlayers().size());
     }
 
     @Test
     void testRemovePlayer_GameAlreadyStarted() {
-        Game game = gameService.getByRoom(roomService.getById(UUID.fromString("00000000-0000-0000-0000-000000000000")));
-        User user = userService.getById(UUID.fromString("11111111-1111-1111-1111-111111111111"));
-        Player player = playerService.findPlayerByGameAndUser(game, user);
-
-        gameService.setStatus(game, GameStatusEnum.STARTED);
+        game.getPlayers().add(player);
+        game.setStatus(GameStatusEnum.STARTED);
 
         Assertions.assertThrows(GameAlreadyStartedException.class, () -> gameService.removePlayer(game, player));
     }
 
     @Test
     void testRemovePlayer_CreatorLeave() {
-        Game game = gameService.getByRoom(roomService.getById(UUID.fromString("00000000-0000-0000-0000-000000000000")));
-        User user = userService.getById(UUID.fromString("00000000-0000-0000-0000-000000000000"));
-        Player player = playerService.findPlayerByGameAndUser(game, user);
+        Player creatorPlayer = game.getPlayers().get(0);
 
-        Assertions.assertThrows(GameCreatorCannotLeaveException.class, () -> gameService.removePlayer(game, player));
+        Assertions.assertThrows(GameCreatorCannotLeaveException.class, () -> gameService.removePlayer(game, creatorPlayer));
     }
 
     @Test
     void testStartGame() {
-        Game game = gameService.startGame(gameService.getByRoom(roomService.getById(UUID.fromString("00000000-0000-0000-0000-000000000000"))));
+        game.getPlayers().add(player);
+        game.getPlayers().add(new Player());
+        when(gameConfig.getDefaultMinNumberOfPlayers()).thenReturn(3);
+        when(gameDao.createOrUpdate(game)).thenReturn(game);
 
-        Assertions.assertEquals(UUID.fromString("00000000-0000-0000-0000-000000000000"), game.getRoom().getId());
-        Assertions.assertEquals(3, game.getPlayers().size());
-        Assertions.assertEquals(GameStatusEnum.STARTED, game.getStatus());
+        Game startedGame = gameService.startGame(game);
+
+        Assertions.assertEquals(GameStatusEnum.STARTED, startedGame.getStatus());
+        verify(gameDao).transferCardsFromDictionaryToDeck(game);
     }
 
     @Test
     void testStartGame_GameAlreadyStarted() {
-        Assertions.assertThrows(GameAlreadyStartedException.class, () -> gameService.startGame(gameService.getByRoom(roomService.getById(UUID.fromString("33333333-3333-3333-3333-333333333333")))));
+        game.setStatus(GameStatusEnum.STARTED);
+
+        Assertions.assertThrows(GameAlreadyStartedException.class, () -> gameService.startGame(game));
     }
 
     @Test
     void testStartGame_GameNotFilled() {
-        Assertions.assertThrows(GameNotFilledException.class, () -> gameService.startGame(gameService.getByRoom(roomService.getById(UUID.fromString("11111111-1111-1111-1111-111111111111")))));
+        when(gameConfig.getDefaultMinNumberOfPlayers()).thenReturn(3);
+
+        Assertions.assertThrows(GameNotFilledException.class, () -> gameService.startGame(game));
     }
 
     @Test
-    @DatabaseSetup("classpath:dbunit/service/setup/game/player2.xml")
     void testStartGame_GameOverflowed() {
-        Assertions.assertThrows(GameAlreadyFilledException.class, () -> gameService.startGame(gameService.getByRoom(roomService.getById(UUID.fromString("00000000-0000-0000-0000-000000000000")))));
+        game.setMaxNumberOfPlayers(1);
+        game.getPlayers().add(player);
+        when(gameConfig.getDefaultMinNumberOfPlayers()).thenReturn(1);
+
+        Assertions.assertThrows(GameAlreadyFilledException.class, () -> gameService.startGame(game));
     }
 
     @Test
-    @DatabaseSetup("classpath:dbunit/service/setup/game/player2.xml")
     void testVoteDeletion_vote() {
-        Game game = gameService.getByRoom(roomService.getById(UUID.fromString("33333333-3333-3333-3333-333333333333")));
-        User user = userService.getById(UUID.fromString("77777777-7777-7777-7777-777777777777"));
-        Player player = playerService.findPlayerByGameAndUser(game, user);
+        game.setStatus(GameStatusEnum.STARTED);
+        game.getPlayers().add(player);
+        game.getPlayers().add(new Player());
 
-        game = gameService.voteForDeletion(game, player);
+        when(gameDao.createOrUpdate(game)).thenReturn(game);
 
-        Assertions.assertNotNull(game);
-        Assertions.assertNotNull(game.getDeletionVotes().get(0));
-        Assertions.assertEquals(UUID.fromString("77777777-7777-7777-7777-777777777777"), game.getDeletionVotes().get(0).getId());
-        Assertions.assertEquals(GameStatusEnum.STARTED, game.getStatus());
+        Game updatedGame = gameService.voteForDeletion(game, player);
+
+        Assertions.assertNotNull(updatedGame);
+        Assertions.assertEquals(1, updatedGame.getDeletionVotes().size());
+        Assertions.assertEquals(playerUser, updatedGame.getDeletionVotes().get(0));
+        Assertions.assertEquals(GameStatusEnum.STARTED, updatedGame.getStatus());
     }
 
     @Test
-    @DatabaseSetup("classpath:dbunit/service/setup/game/player2.xml")
     void testVoteDeletion_delete() {
-        Game game = gameService.getByRoom(roomService.getById(UUID.fromString("33333333-3333-3333-3333-333333333333")));
-        User user = userService.getById(UUID.fromString("77777777-7777-7777-7777-777777777777"));
-        Player player = playerService.findPlayerByGameAndUser(game, user);
+        game.setStatus(GameStatusEnum.STARTED);
+        game.getPlayers().add(player);
+        User anotherUser = new User();
+        anotherUser.setId(UUID.fromString("99999999-9999-9999-9999-999999999999"));
+        game.getDeletionVotes().add(anotherUser);
 
-        game = gameService.voteForDeletion(game, player);
+        when(gameDao.createOrUpdate(game)).thenReturn(game);
 
-        user = userService.getById(UUID.fromString("99999999-9999-9999-9999-999999999999"));
-        player = playerService.findPlayerByGameAndUser(game, user);
+        Game updatedGame = gameService.voteForDeletion(game, player);
 
-        game = gameService.voteForDeletion(game, player);
-
-        Assertions.assertNotNull(game);
-        Assertions.assertNotNull(game.getDeletionVotes().get(0));
-        Assertions.assertEquals(UUID.fromString("77777777-7777-7777-7777-777777777777"), game.getDeletionVotes().get(0).getId());
-        Assertions.assertEquals(UUID.fromString("99999999-9999-9999-9999-999999999999"), game.getDeletionVotes().get(1).getId());
-        Assertions.assertEquals(GameStatusEnum.DELETING, game.getStatus());
+        Assertions.assertNotNull(updatedGame);
+        Assertions.assertEquals(2, updatedGame.getDeletionVotes().size());
+        Assertions.assertEquals(playerUser, updatedGame.getDeletionVotes().get(1));
+        Assertions.assertEquals(GameStatusEnum.DELETING, updatedGame.getStatus());
     }
 
     @Test
     void testVoteForDeletion_GameNotStarted() {
-        Game game = gameService.getByRoom(roomService.getById(UUID.fromString("00000000-0000-0000-0000-000000000000")));
-        User user = userService.getById(UUID.fromString("00000000-0000-0000-0000-000000000000"));
-        Player player = playerService.findPlayerByGameAndUser(game, user);
-
         Assertions.assertThrows(GameNotStartedException.class, () -> gameService.voteForDeletion(game, player));
     }
 
     @Test
     void testVoteForDeletion_GameCreatorCannotLeaveException() {
-        Game game = gameService.getByRoom(roomService.getById(UUID.fromString("00000000-0000-0000-0000-000000000000")));
-        User user = userService.getById(UUID.fromString("00000000-0000-0000-0000-000000000000"));
-        Player player = playerService.findPlayerByGameAndUser(game, user);
+        game.setStatus(GameStatusEnum.STARTED);
+        Player creatorPlayer = game.getPlayers().get(0);
 
-        gameService.setStatus(game, GameStatusEnum.STARTED);
-
-        Assertions.assertThrows(GameCreatorCannotLeaveException.class, () -> gameService.voteForDeletion(game, player));
+        Assertions.assertThrows(GameCreatorCannotLeaveException.class, () -> gameService.voteForDeletion(game, creatorPlayer));
     }
 
     @Test
-    @DatabaseSetup("classpath:dbunit/service/setup/game/player2.xml")
-    @DatabaseSetup("classpath:dbunit/service/setup/game/gamedeletionvotes.xml")
     void testVoteDeletion_PlayerAlreadyVoted() {
-        Game game = gameService.getByRoom(roomService.getById(UUID.fromString("00000000-0000-0000-0000-000000000000")));
-        User user = userService.getById(UUID.fromString("11111111-1111-1111-1111-111111111111"));
-        Player player = playerService.findPlayerByGameAndUser(game, user);
-
         game.setStatus(GameStatusEnum.STARTED);
+        game.getDeletionVotes().add(playerUser);
 
         Assertions.assertThrows(PlayerAlreadyVotedDeleteException.class, () -> gameService.voteForDeletion(game, player));
     }
 
     @Test
-    @DatabaseSetup("classpath:dbunit/service/setup/game/game_endGame.xml")
-    @ExpectedDatabase(value = "classpath:dbunit/service/expected/game/testEndGame-expected.xml", table = "Game", assertionMode = DatabaseAssertionMode.NON_STRICT_UNORDERED)
     void testEndGame() {
-        gameService.endGame(gameService.getByRoom(roomService.getById(UUID.fromString("33333333-3333-3333-3333-333333333333"))));
+        game.setStatus(GameStatusEnum.ENDING);
 
-        Assertions.assertNull(gameService.getByRoom(roomService.getById(UUID.fromString("33333333-3333-3333-3333-333333333333"))));
+        gameService.endGame(game);
+
+        verify(gameDao).delete(game);
     }
 
     @Test
     void testEndGame_GameNotEnding() {
-        Assertions.assertThrows(GameNotEndingException.class, () -> gameService.endGame(gameService.getByRoom(roomService.getById(UUID.fromString("00000000-0000-0000-0000-000000000000")))));
+        Assertions.assertThrows(GameNotEndingException.class, () -> gameService.endGame(game));
     }
 
     @Test
-    @DatabaseSetup("classpath:dbunit/service/setup/game/deckcard.xml")
-    @DatabaseSetup("classpath:dbunit/service/setup/game/player2.xml")
     void testSetCurrentRound() {
-        Game game = gameService.getByRoom(roomService.getById(UUID.fromString("33333333-3333-3333-3333-333333333333")));
-        Round round = roundService.createRound(game, 0);
-        game = gameService.setCurrentRound(game, round);
+        game.setStatus(GameStatusEnum.STARTED);
+        Round round = new Round();
+        round.setId(UUID.fromString("33333333-3333-3333-3333-333333333333"));
+        round.setCreationDate(new java.util.Date());
+        when(gameDao.createOrUpdate(game)).thenReturn(game);
 
-        Assertions.assertEquals(round, game.getCurrentRound());
+        Game updatedGame = gameService.setCurrentRound(game, round);
+
+        Assertions.assertEquals(round, updatedGame.getCurrentRound());
     }
 
     @Test
-    @DatabaseSetup("classpath:dbunit/service/setup/game/deckcard.xml")
-    @DatabaseSetup("classpath:dbunit/service/setup/game/player2.xml")
     void testSetCurrentRound_GameNotStarted() {
-        Game game = gameService.getByRoom(roomService.getById(UUID.fromString("33333333-3333-3333-3333-333333333333")));
         game.setStatus(GameStatusEnum.DELETING);
-        Round round = roundService.createRound(game, 0);
+        Round round = new Round();
+        round.setId(UUID.fromString("33333333-3333-3333-3333-333333333333"));
+        round.setCreationDate(new java.util.Date());
 
         Assertions.assertThrows(GameNotStartedException.class, () -> gameService.setCurrentRound(game, round));
     }

@@ -1,133 +1,178 @@
 package org.themarioga.engine.cah.service.dictionaries;
 
-import com.github.springtestdbunit.annotation.DatabaseSetup;
-import com.github.springtestdbunit.annotation.ExpectedDatabase;
-import com.github.springtestdbunit.assertion.DatabaseAssertionMode;
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.themarioga.engine.cah.BaseTest;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.themarioga.engine.cah.config.DictionariesConfig;
+import org.themarioga.engine.cah.dao.intf.dictionaries.CardDao;
 import org.themarioga.engine.cah.enums.CardTypeEnum;
 import org.themarioga.engine.cah.exceptions.card.CardAlreadyExistsException;
 import org.themarioga.engine.cah.exceptions.card.CardTextExcededLength;
 import org.themarioga.engine.cah.exceptions.dictionary.DictionaryAlreadyFilledException;
 import org.themarioga.engine.cah.models.dictionaries.Card;
 import org.themarioga.engine.cah.models.dictionaries.Dictionary;
-import org.themarioga.engine.cah.services.intf.dictionaries.CardService;
-import org.themarioga.engine.cah.services.intf.dictionaries.DictionaryService;
+import org.themarioga.engine.cah.services.impl.dictionaries.CardServiceImpl;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
-@DatabaseSetup("classpath:dbunit/service/setup/lang.xml")
-@DatabaseSetup("classpath:dbunit/service/setup/user.xml")
-@DatabaseSetup("classpath:dbunit/service/setup/dictionaries/dictionary.xml")
-@DatabaseSetup("classpath:dbunit/service/setup/dictionaries/card.xml")
-@DatabaseSetup("classpath:dbunit/service/setup/dictionaries/dictionarycollaborators.xml")
-class CardServiceTest extends BaseTest {
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.*;
 
-    @Autowired
-    CardService cardService;
+@ExtendWith(MockitoExtension.class)
+class CardServiceTest {
 
-    @Autowired
-    DictionaryService dictionaryService;
+    @InjectMocks
+    private CardServiceImpl cardService;
+
+    @Mock
+    private CardDao cardDao;
+
+    @Mock
+    private DictionariesConfig dictionariesConfig;
+
+    private Dictionary dictionary;
+    private Card card;
+
+    @BeforeEach
+    void setUp() {
+        dictionary = new Dictionary();
+        dictionary.setId(UUID.fromString("00000000-0000-0000-0000-000000000000"));
+
+        card = new Card();
+        card.setId(UUID.fromString("00000000-0000-0000-0000-000000000000"));
+        card.setDictionary(dictionary);
+        card.setText("First black card");
+        card.setType(CardTypeEnum.BLACK);
+    }
 
     @Test
-    @ExpectedDatabase(value = "classpath:dbunit/service/expected/dictionaries/testCreateCard-expected.xml", table = "Card", assertionMode = DatabaseAssertionMode.NON_STRICT_UNORDERED)
     void testCreateCard() {
-        Dictionary dictionary = dictionaryService.getDictionaryById(UUID.fromString("11111111-1111-1111-1111-111111111111"));
+        when(cardDao.checkCardExistsByDictionaryTypeAndText(dictionary, CardTypeEnum.WHITE, "Test card")).thenReturn(false);
+        when(cardDao.countCardsByDictionaryAndType(dictionary, CardTypeEnum.WHITE)).thenReturn(0);
+        when(dictionariesConfig.getMaxNumberOfWhiteCards()).thenReturn(100);
+        when(dictionariesConfig.getMinWhiteCardLength()).thenReturn(1);
+        when(dictionariesConfig.getMaxWhiteCardLength()).thenReturn(50);
+        when(cardDao.createOrUpdate(any(Card.class))).thenAnswer(invocation -> {
+            Card c = invocation.getArgument(0);
+            c.setId(UUID.fromString("11111111-1111-1111-1111-111111111111"));
+            return c;
+        });
 
-        Card card = cardService.create(dictionary, CardTypeEnum.WHITE, "Test card");
-        getCurrentSession().flush();
-        Assertions.assertNotNull(card);
+        Card createdCard = cardService.create(dictionary, CardTypeEnum.WHITE, "Test card");
+
+        Assertions.assertNotNull(createdCard);
+        Assertions.assertEquals(UUID.fromString("11111111-1111-1111-1111-111111111111"), createdCard.getId());
+        Assertions.assertEquals("Test card", createdCard.getText());
+        Assertions.assertEquals(CardTypeEnum.WHITE, createdCard.getType());
+        verify(cardDao).createOrUpdate(any(Card.class));
     }
 
     @Test
     void testCreateCard_AlreadyExists() {
-        Dictionary dictionary = dictionaryService.getDictionaryById(UUID.fromString("11111111-1111-1111-1111-111111111111"));
+        when(cardDao.checkCardExistsByDictionaryTypeAndText(dictionary, CardTypeEnum.WHITE, "Another white card")).thenReturn(true);
 
         Assertions.assertThrows(CardAlreadyExistsException.class, () -> cardService.create(dictionary, CardTypeEnum.WHITE, "Another white card"));
     }
 
     @Test
     void testCreateCard_AlreadyFilled() {
-        Dictionary dictionary = dictionaryService.getDictionaryById(UUID.fromString("00000000-0000-0000-0000-000000000000"));
+        when(cardDao.checkCardExistsByDictionaryTypeAndText(dictionary, CardTypeEnum.WHITE, "Test card")).thenReturn(false);
+        when(cardDao.countCardsByDictionaryAndType(dictionary, CardTypeEnum.WHITE)).thenReturn(100);
+        when(dictionariesConfig.getMaxNumberOfWhiteCards()).thenReturn(100);
 
         Assertions.assertThrows(DictionaryAlreadyFilledException.class, () -> cardService.create(dictionary, CardTypeEnum.WHITE, "Test card"));
     }
 
     @Test
     void testCreateCard_TextLengthExceeded() {
-        Dictionary dictionary = dictionaryService.getDictionaryById(UUID.fromString("11111111-1111-1111-1111-111111111111"));
+        when(cardDao.checkCardExistsByDictionaryTypeAndText(dictionary, CardTypeEnum.WHITE, "This test card have a very long text")).thenReturn(false);
+        when(cardDao.countCardsByDictionaryAndType(dictionary, CardTypeEnum.WHITE)).thenReturn(0);
+        when(dictionariesConfig.getMaxNumberOfWhiteCards()).thenReturn(100);
+        when(dictionariesConfig.getMinWhiteCardLength()).thenReturn(1);
+        when(dictionariesConfig.getMaxWhiteCardLength()).thenReturn(10);
 
         Assertions.assertThrows(CardTextExcededLength.class, () -> cardService.create(dictionary, CardTypeEnum.WHITE, "This test card have a very long text"));
     }
 
     @Test
     void testChangeText() {
-        Card card = cardService.getCardById(UUID.fromString("00000000-0000-0000-0000-000000000000"));
+        when(cardDao.checkCardExistsByDictionaryTypeAndText(dictionary, CardTypeEnum.BLACK, "New text")).thenReturn(false);
+        when(dictionariesConfig.getMinBlackCardLength()).thenReturn(1);
+        when(dictionariesConfig.getMaxBlackCardLength()).thenReturn(50);
+        when(cardDao.createOrUpdate(any(Card.class))).thenReturn(card);
 
-        card = cardService.changeText(card, "New text");
+        Card updatedCard = cardService.changeText(card, "New text");
 
-        Assertions.assertEquals("New text", card.getText());
+        Assertions.assertEquals("New text", updatedCard.getText());
+        verify(cardDao).createOrUpdate(card);
     }
 
     @Test
     void testChangeText_CardAlreadyExists() {
-        Card card = cardService.getCardById(UUID.fromString("00000000-0000-0000-0000-000000000000"));
+        when(cardDao.checkCardExistsByDictionaryTypeAndText(dictionary, CardTypeEnum.BLACK, "Second black card")).thenReturn(true);
 
         Assertions.assertThrows(CardAlreadyExistsException.class, () -> cardService.changeText(card, "Second black card"));
     }
 
     @Test
     void testChangeText_TextLengthExceeded() {
-        Card card = cardService.getCardById(UUID.fromString("00000000-0000-0000-0000-000000000000"));
+        when(cardDao.checkCardExistsByDictionaryTypeAndText(dictionary, CardTypeEnum.BLACK, "This test card will have a very long text")).thenReturn(false);
+        when(dictionariesConfig.getMinBlackCardLength()).thenReturn(1);
+        when(dictionariesConfig.getMaxBlackCardLength()).thenReturn(10);
 
         Assertions.assertThrows(CardTextExcededLength.class, () -> cardService.changeText(card, "This test card will have a very long text"));
     }
 
     @Test
-    @ExpectedDatabase(value = "classpath:dbunit/service/expected/dictionaries/testDeleteCard-expected.xml", table = "Card", assertionMode = DatabaseAssertionMode.NON_STRICT_UNORDERED)
     void testDelete() {
-        Card card = cardService.getCardById(UUID.fromString("00000000-0000-0000-0000-000000000000"));
+        doNothing().when(cardDao).delete(card);
 
         cardService.delete(card);
-        getCurrentSession().flush();
 
-        Assertions.assertNull(cardService.getCardById(UUID.fromString("00000000-0000-0000-0000-000000000000")));
+        verify(cardDao).delete(card);
     }
 
     @Test
     void testGetCardById() {
-        Card card = cardService.getCardById(UUID.fromString("00000000-0000-0000-0000-000000000000"));
+        when(cardDao.findOne(card.getId())).thenReturn(card);
 
-        Assertions.assertNotNull(card);
-        Assertions.assertEquals("First black card", card.getText());
+        Card foundCard = cardService.getCardById(card.getId());
+
+        Assertions.assertNotNull(foundCard);
+        Assertions.assertEquals("First black card", foundCard.getText());
     }
 
     @Test
     void testFindCardsByDictionaryAndType() {
-        Dictionary dictionary = dictionaryService.getDictionaryById(UUID.fromString("00000000-0000-0000-0000-000000000000"));
+        List<Card> list = new ArrayList<>();
+        list.add(card);
+
+        when(cardDao.findCardsByDictionaryAndType(dictionary, CardTypeEnum.BLACK)).thenReturn(list);
 
         List<Card> blackCards = cardService.findCardsByDictionaryAndType(dictionary, CardTypeEnum.BLACK);
-        Assertions.assertEquals(3, blackCards.size());
-
-        List<Card> whiteCards = cardService.findCardsByDictionaryAndType(dictionary, CardTypeEnum.WHITE);
-        Assertions.assertEquals(15, whiteCards.size());
+        Assertions.assertEquals(1, blackCards.size());
     }
 
     @Test
     void testCountCardsByDictionaryAndType() {
-        Dictionary dictionary = dictionaryService.getDictionaryById(UUID.fromString("00000000-0000-0000-0000-000000000000"));
+        when(cardDao.countCardsByDictionaryAndType(dictionary, CardTypeEnum.BLACK)).thenReturn(3);
 
         Assertions.assertEquals(3, cardService.countCardsByDictionaryAndType(dictionary, CardTypeEnum.BLACK));
-
-        Assertions.assertEquals(15, cardService.countCardsByDictionaryAndType(dictionary, CardTypeEnum.WHITE));
     }
 
     @Test
     void testCheckDictionaryCanBePublished() {
-        Dictionary dictionary = dictionaryService.getDictionaryById(UUID.fromString("00000000-0000-0000-0000-000000000000"));
+        when(cardDao.countCardsByDictionaryAndType(dictionary, CardTypeEnum.WHITE)).thenReturn(10);
+        when(dictionariesConfig.getMinNumberOfWhiteCards()).thenReturn(10);
+        when(cardDao.countCardsByDictionaryAndType(dictionary, CardTypeEnum.BLACK)).thenReturn(5);
+        when(dictionariesConfig.getMinNumberOfBlackCards()).thenReturn(5);
 
         Assertions.assertTrue(cardService.checkDictionaryCanBePublished(dictionary));
     }

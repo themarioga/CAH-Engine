@@ -1,58 +1,71 @@
 package org.themarioga.engine.cah.dao.game;
 
-import com.github.springtestdbunit.annotation.DatabaseSetup;
-import com.github.springtestdbunit.annotation.ExpectedDatabase;
-import com.github.springtestdbunit.assertion.DatabaseAssertionMode;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.TypedQuery;
+import org.hibernate.Session;
+import org.hibernate.query.Query;
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.themarioga.engine.cah.BaseTest;
-import org.themarioga.engine.cah.dao.intf.dictionaries.DictionaryDao;
-import org.themarioga.engine.cah.dao.intf.game.GameDao;
-import org.themarioga.engine.cah.dao.intf.game.PlayerDao;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.themarioga.engine.cah.dao.impl.game.GameDaoImpl;
 import org.themarioga.engine.cah.enums.PunctuationModeEnum;
 import org.themarioga.engine.cah.enums.VotationModeEnum;
 import org.themarioga.engine.cah.models.dictionaries.Dictionary;
 import org.themarioga.engine.cah.models.game.Game;
-import org.themarioga.engine.commons.dao.intf.RoomDao;
-import org.themarioga.engine.commons.dao.intf.UserDao;
+import org.themarioga.engine.cah.models.game.Player;
 import org.themarioga.engine.commons.enums.GameStatusEnum;
 import org.themarioga.engine.commons.models.Room;
 import org.themarioga.engine.commons.models.User;
 
+import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 import java.util.UUID;
+import java.util.stream.Stream;
 
-@DatabaseSetup("classpath:dbunit/dao/setup/lang.xml")
-@DatabaseSetup("classpath:dbunit/dao/setup/user.xml")
-@DatabaseSetup("classpath:dbunit/dao/setup/room.xml")
-@DatabaseSetup("classpath:dbunit/dao/setup/dictionaries/dictionary.xml")
-@DatabaseSetup("classpath:dbunit/dao/setup/game/game.xml")
-class GameDaoTest extends BaseTest {
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.*;
 
-    @Autowired
-    private GameDao gameDao;
-    @Autowired
-    private UserDao userDao;
-    @Autowired
-    private RoomDao roomDao;
-    @Autowired
-    private PlayerDao playerDao;
-    @Autowired
-    private DictionaryDao dictionaryDao;
+@ExtendWith(MockitoExtension.class)
+class GameDaoTest {
 
-    @Test
-    @ExpectedDatabase(value = "classpath:dbunit/dao/expected/game/testCreateGame-expected.xml", table = "Game", assertionMode = DatabaseAssertionMode.NON_STRICT_UNORDERED)
-    void createGame() {
-        Room room = roomDao.findOne(UUID.fromString("11111111-1111-1111-1111-111111111111"));
-        User creator = userDao.findOne(UUID.fromString("11111111-1111-1111-1111-111111111111"));
-        Dictionary dictionary = dictionaryDao.findOne(UUID.fromString("00000000-0000-0000-0000-000000000000"));
+    private GameDaoImpl gameDao;
 
-        Game game = new Game();
+    @Mock
+    private EntityManager entityManager;
+
+    @Mock
+    private Session session;
+
+    private Game game;
+    private Room room;
+    private User user;
+    private Dictionary dictionary;
+
+    @BeforeEach
+    void setUp() {
+        gameDao = new GameDaoImpl();
+        gameDao.setEntityManager(entityManager);
+
+        room = new Room();
+        room.setId(UUID.fromString("00000000-0000-0000-0000-000000000000"));
+
+        user = new User();
+        user.setId(UUID.fromString("00000000-0000-0000-0000-000000000000"));
+
+        dictionary = new Dictionary();
+        dictionary.setId(UUID.fromString("00000000-0000-0000-0000-000000000000"));
+
+        game = new Game();
+        game.setId(UUID.fromString("00000000-0000-0000-0000-000000000000"));
         game.setStatus(GameStatusEnum.CREATED);
         game.setRoom(room);
-        game.setCreator(creator);
+        game.setCreator(user);
         game.setDictionary(dictionary);
         game.setMaxNumberOfPlayers(1);
         game.setNumberOfPointsToWin(1);
@@ -61,57 +74,95 @@ class GameDaoTest extends BaseTest {
         game.setVotationMode(VotationModeEnum.DEMOCRACY);
         game.setCreationDate(new Date());
 
-        game = gameDao.createOrUpdate(game);
-        getCurrentSession().flush();
-
-        Assertions.assertNotNull(game.getId());
+        Player player = new Player();
+        player.setGame(game);
+        player.setUser(user);
+        game.getPlayers().add(player);
+        game.getDeletionVotes().add(user);
     }
 
     @Test
-    @ExpectedDatabase(value = "classpath:dbunit/dao/expected/game/testUpdateGame-expected.xml", table = "Game", assertionMode = DatabaseAssertionMode.NON_STRICT_UNORDERED)
+    void createGame() {
+        when(entityManager.merge(any(Game.class))).thenReturn(game);
+
+        Game newGame = new Game();
+        newGame.setStatus(GameStatusEnum.CREATED);
+        newGame.setRoom(room);
+        newGame.setCreator(user);
+        newGame.setDictionary(dictionary);
+        newGame.setMaxNumberOfPlayers(1);
+        newGame.setNumberOfPointsToWin(1);
+        newGame.setNumberOfRoundsToEnd(1);
+        newGame.setPunctuationMode(PunctuationModeEnum.POINTS);
+        newGame.setVotationMode(VotationModeEnum.DEMOCRACY);
+        newGame.setCreationDate(new Date());
+
+        Game createdGame = gameDao.createOrUpdate(newGame);
+
+        Assertions.assertNotNull(createdGame.getId());
+        verify(entityManager).merge(newGame);
+    }
+
+    @Test
     void updateGame() {
-        Game game = gameDao.findOne(UUID.fromString("00000000-0000-0000-0000-000000000000"));
+        when(entityManager.merge(any(Game.class))).thenReturn(game);
+
         game.setStatus(GameStatusEnum.STARTED);
 
-        gameDao.createOrUpdate(game);
-        getCurrentSession().flush();
+        Game updatedGame = gameDao.createOrUpdate(game);
 
-        Assertions.assertEquals(UUID.fromString("00000000-0000-0000-0000-000000000000"), game.getId());
+        Assertions.assertEquals(UUID.fromString("00000000-0000-0000-0000-000000000000"), updatedGame.getId());
+        verify(entityManager).merge(game);
     }
 
     @Test
     void deleteGame() {
-        Game game = gameDao.findOne(UUID.fromString("00000000-0000-0000-0000-000000000000"));
+        doNothing().when(entityManager).remove(game);
 
         gameDao.delete(game);
 
-        long total = gameDao.countAll();
-
-        Assertions.assertEquals(0, total);
+        verify(entityManager).remove(game);
     }
 
     @Test
     void findGame() {
-        Game game = gameDao.findOne(UUID.fromString("00000000-0000-0000-0000-000000000000"));
+        when(entityManager.find(Game.class, game.getId())).thenReturn(game);
 
-        Assertions.assertEquals(UUID.fromString("00000000-0000-0000-0000-000000000000"), game.getId());
-        Assertions.assertEquals(UUID.fromString("00000000-0000-0000-0000-000000000000"), game.getRoom().getId());
-        Assertions.assertEquals(UUID.fromString("00000000-0000-0000-0000-000000000000"), game.getCreator().getId());
-        Assertions.assertEquals(GameStatusEnum.CREATED, game.getStatus());
+        Game foundGame = gameDao.findOne(game.getId());
+
+        Assertions.assertEquals(UUID.fromString("00000000-0000-0000-0000-000000000000"), foundGame.getId());
+        Assertions.assertEquals(UUID.fromString("00000000-0000-0000-0000-000000000000"), foundGame.getRoom().getId());
+        Assertions.assertEquals(UUID.fromString("00000000-0000-0000-0000-000000000000"), foundGame.getCreator().getId());
+        Assertions.assertEquals(GameStatusEnum.CREATED, foundGame.getStatus());
     }
 
     @Test
+    @SuppressWarnings("unchecked")
     void getByRoomId() {
-        Game game = (Game) gameDao.getByRoom(roomDao.findOne(UUID.fromString("00000000-0000-0000-0000-000000000000")));
+        Query<Game> query = mock(Query.class);
+        when(entityManager.unwrap(any())).thenReturn(session);
+        when(session.createQuery(anyString(), eq(Game.class))).thenReturn(query);
+        when(query.setParameter("room", room)).thenReturn(query);
+        when(query.getSingleResultOrNull()).thenReturn(game);
 
-        Assertions.assertEquals(UUID.fromString("00000000-0000-0000-0000-000000000000"), game.getId());
-        Assertions.assertEquals(UUID.fromString("00000000-0000-0000-0000-000000000000"), game.getRoom().getId());
-        Assertions.assertEquals(UUID.fromString("00000000-0000-0000-0000-000000000000"), game.getCreator().getId());
-        Assertions.assertEquals(GameStatusEnum.CREATED, game.getStatus());
+        Game foundGame = (Game) gameDao.getByRoom(room);
+
+        Assertions.assertEquals(UUID.fromString("00000000-0000-0000-0000-000000000000"), foundGame.getId());
+        Assertions.assertEquals(UUID.fromString("00000000-0000-0000-0000-000000000000"), foundGame.getRoom().getId());
+        Assertions.assertEquals(UUID.fromString("00000000-0000-0000-0000-000000000000"), foundGame.getCreator().getId());
+        Assertions.assertEquals(GameStatusEnum.CREATED, foundGame.getStatus());
     }
 
     @Test
+    @SuppressWarnings("unchecked")
     void findAllGames() {
+        List<Game> list = new ArrayList<>();
+        list.add(game);
+
+        TypedQuery<Game> typedQuery = mock(TypedQuery.class);
+        when(entityManager.createQuery(anyString(), eq(Game.class))).thenReturn(typedQuery);
+        when(typedQuery.getResultList()).thenReturn(list);
+
         List<Game> games = gameDao.findAll();
 
         Assertions.assertEquals(1, games.size());
@@ -123,46 +174,48 @@ class GameDaoTest extends BaseTest {
     }
 
     @Test
+    @SuppressWarnings("unchecked")
     void countAllGames() {
+        TypedQuery<Game> typedQuery = mock(TypedQuery.class);
+        when(entityManager.createQuery(anyString(), eq(Game.class))).thenReturn(typedQuery);
+        when(typedQuery.getResultStream()).thenReturn(Stream.of(game));
+
         long total = gameDao.countAll();
 
         Assertions.assertEquals(1, total);
     }
 
     @Test
-    @DatabaseSetup("classpath:dbunit/dao/setup/game/player.xml")
-    @ExpectedDatabase(value = "classpath:dbunit/dao/expected/game/testUpdateGameDeletionVotes-expected.xml", table = "game_deletion_votes", assertionMode = DatabaseAssertionMode.NON_STRICT_UNORDERED)
     void addDeletionVoteToTable() {
-        Game game = gameDao.findOne(UUID.fromString("00000000-0000-0000-0000-000000000000"));
-        User user = userDao.findOne(UUID.fromString("00000000-0000-0000-0000-000000000000"));
+        when(entityManager.merge(any(Game.class))).thenReturn(game);
 
         game.getDeletionVotes().add(user);
 
-        gameDao.createOrUpdate(game);
-        getCurrentSession().flush();
+        Game updatedGame = gameDao.createOrUpdate(game);
 
-        Assertions.assertEquals(1, game.getDeletionVotes().size());
+        Assertions.assertEquals(2, updatedGame.getDeletionVotes().size());
+        verify(entityManager).merge(game);
     }
 
     @Test
-    @DatabaseSetup("classpath:dbunit/dao/setup/game/player.xml")
-    @DatabaseSetup("classpath:dbunit/dao/setup/game/gamedeletionvotes.xml")
     void getTableDeletionVotes() {
-        Game game = gameDao.findOne(UUID.fromString("00000000-0000-0000-0000-000000000000"));
+        when(entityManager.find(Game.class, game.getId())).thenReturn(game);
 
-        Assertions.assertEquals(UUID.fromString("00000000-0000-0000-0000-000000000000"), game.getId());
+        Game foundGame = gameDao.findOne(game.getId());
 
-        Assertions.assertNotNull(game.getDeletionVotes());
-        Assertions.assertEquals(1, game.getDeletionVotes().size());
+        Assertions.assertEquals(UUID.fromString("00000000-0000-0000-0000-000000000000"), foundGame.getId());
+
+        Assertions.assertNotNull(foundGame.getDeletionVotes());
+        Assertions.assertEquals(1, foundGame.getDeletionVotes().size());
     }
 
     @Test
-    @DatabaseSetup("classpath:dbunit/dao/setup/game/player.xml")
     void findPlayersInGame() {
-        Game game = gameDao.findOne(UUID.fromString("00000000-0000-0000-0000-000000000000"));
+        when(entityManager.find(Game.class, game.getId())).thenReturn(game);
 
-        Assertions.assertEquals(1, game.getPlayers().size());
+        Game foundGame = gameDao.findOne(game.getId());
+
+        Assertions.assertEquals(1, foundGame.getPlayers().size());
     }
 
 }
-

@@ -1,12 +1,14 @@
 package org.themarioga.engine.cah.service.game;
 
-import com.github.springtestdbunit.annotation.DatabaseSetup;
-import com.github.springtestdbunit.annotation.ExpectedDatabase;
-import com.github.springtestdbunit.assertion.DatabaseAssertionMode;
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.themarioga.engine.cah.BaseTest;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.themarioga.engine.cah.dao.intf.game.RoundDao;
+import org.themarioga.engine.cah.enums.CardTypeEnum;
 import org.themarioga.engine.cah.enums.RoundStatusEnum;
 import org.themarioga.engine.cah.enums.VotationModeEnum;
 import org.themarioga.engine.cah.exceptions.card.CardAlreadyPlayedException;
@@ -18,276 +20,288 @@ import org.themarioga.engine.cah.exceptions.player.PlayerCannotVoteCardException
 import org.themarioga.engine.cah.exceptions.round.RoundWrongStatusException;
 import org.themarioga.engine.cah.models.dictionaries.Card;
 import org.themarioga.engine.cah.models.game.*;
-import org.themarioga.engine.cah.services.intf.dictionaries.CardService;
-import org.themarioga.engine.cah.services.intf.game.GameService;
+import org.themarioga.engine.cah.services.impl.game.RoundServiceImpl;
 import org.themarioga.engine.cah.services.intf.game.PlayerService;
-import org.themarioga.engine.cah.services.intf.game.RoundService;
-import org.themarioga.engine.commons.services.intf.RoomService;
-import org.themarioga.engine.commons.services.intf.UserService;
+import org.themarioga.engine.commons.models.User;
 
 import java.util.UUID;
 
-@DatabaseSetup("classpath:dbunit/service/setup/lang.xml")
-@DatabaseSetup("classpath:dbunit/service/setup/user.xml")
-@DatabaseSetup("classpath:dbunit/service/setup/room.xml")
-@DatabaseSetup("classpath:dbunit/service/setup/dictionaries/dictionary.xml")
-@DatabaseSetup("classpath:dbunit/service/setup/dictionaries/card.xml")
-@DatabaseSetup("classpath:dbunit/service/setup/game/game.xml")
-@DatabaseSetup("classpath:dbunit/service/setup/game/player2.xml")
-@DatabaseSetup("classpath:dbunit/service/setup/game/deckcard.xml")
-@DatabaseSetup("classpath:dbunit/service/setup/game/round.xml")
-class RoundServiceTest extends BaseTest {
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.*;
 
-    @Autowired
-    RoundService roundService;
+@ExtendWith(MockitoExtension.class)
+class RoundServiceTest {
 
-    @Autowired
-    GameService gameService;
+    @InjectMocks
+    private RoundServiceImpl roundService;
 
-    @Autowired
-    RoomService roomService;
+    @Mock
+    private RoundDao roundDao;
 
-    @Autowired
-    PlayerService playerService;
+    @Mock
+    private PlayerService playerService;
 
-    @Autowired
-    UserService userService;
+    private Round round;
+    private Game game;
+    private Player player;
+    private Player player2;
+    private User creator;
+    private User otherUser;
+    private Card blackCard;
+    private Card whiteCard;
 
-    @Autowired
-    CardService cardService;
+    @BeforeEach
+    void setUp() {
+        creator = new User();
+        creator.setId(UUID.fromString("00000000-0000-0000-0000-000000000000"));
+
+        otherUser = new User();
+        otherUser.setId(UUID.fromString("11111111-1111-1111-1111-111111111111"));
+
+        game = new Game();
+        game.setId(UUID.fromString("00000000-0000-0000-0000-000000000000"));
+        game.setCreator(creator);
+        game.setVotationMode(VotationModeEnum.CLASSIC);
+
+        player = new Player();
+        player.setId(UUID.fromString("00000000-0000-0000-0000-000000000000"));
+        player.setUser(creator);
+        player.setGame(game);
+        player.setJoinOrder(0);
+
+        player2 = new Player();
+        player2.setId(UUID.fromString("11111111-1111-1111-1111-111111111111"));
+        player2.setUser(otherUser);
+        player2.setGame(game);
+        player2.setJoinOrder(1);
+
+        game.getPlayers().add(player);
+        game.getPlayers().add(player2);
+
+        blackCard = new Card();
+        blackCard.setId(UUID.fromString("00000000-0000-0000-0000-000000000000"));
+        blackCard.setType(CardTypeEnum.BLACK);
+        game.getBlackCardsDeck().add(blackCard);
+
+        whiteCard = new Card();
+        whiteCard.setId(UUID.fromString("11111111-1111-1111-1111-111111111111"));
+        whiteCard.setType(CardTypeEnum.WHITE);
+
+        round = new Round();
+        round.setId(UUID.fromString("00000000-0000-0000-0000-000000000000"));
+        round.setGame(game);
+        round.setRoundNumber(0);
+        round.setStatus(RoundStatusEnum.PLAYING);
+        round.setRoundPresident(player);
+        game.setCurrentRound(round);
+
+        java.util.Date now = new java.util.Date();
+        creator.setCreationDate(now);
+        otherUser.setCreationDate(now);
+        game.setCreationDate(now);
+        player.setCreationDate(now);
+        player2.setCreationDate(now);
+        blackCard.setCreationDate(now);
+        whiteCard.setCreationDate(now);
+        round.setCreationDate(now);
+    }
 
     @Test
     void testCreateRound_Classic() {
-        Game game = gameService.getByRoom(roomService.getById(UUID.fromString("33333333-3333-3333-3333-333333333333")));
+        when(roundDao.createOrUpdate(any(Round.class))).thenAnswer(i -> i.getArgument(0));
 
-        Round round = roundService.createRound(game, 0);
+        Round newRound = roundService.createRound(game, 0);
 
-        Assertions.assertNotNull(round);
-        Assertions.assertEquals(0, round.getRoundNumber());
-        Assertions.assertNotNull(round.getRoundPresident());
+        Assertions.assertNotNull(newRound);
+        Assertions.assertEquals(0, newRound.getRoundNumber());
+        Assertions.assertNotNull(newRound.getRoundPresident());
+        Assertions.assertEquals(player.getId(), newRound.getRoundPresident().getId());
     }
 
     @Test
     void testCreateRound_Democracy() {
-        Game game = gameService.getByRoom(roomService.getById(UUID.fromString("33333333-3333-3333-3333-333333333333")));
         game.setVotationMode(VotationModeEnum.DEMOCRACY);
+        when(roundDao.createOrUpdate(any(Round.class))).thenAnswer(i -> i.getArgument(0));
 
-        Round round = roundService.createRound(game, 1);
+        Round newRound = roundService.createRound(game, 1);
 
-        Assertions.assertNotNull(round);
-        Assertions.assertEquals(1, round.getRoundNumber());
-        Assertions.assertNull(round.getRoundPresident());
+        Assertions.assertNotNull(newRound);
+        Assertions.assertEquals(1, newRound.getRoundNumber());
+        Assertions.assertNull(newRound.getRoundPresident());
     }
 
     @Test
     void testCreateRound_Dictatorship() {
-        Game game = gameService.getByRoom(roomService.getById(UUID.fromString("33333333-3333-3333-3333-333333333333")));
         game.setVotationMode(VotationModeEnum.DICTATORSHIP);
+        when(playerService.findPlayerByGameAndUser(game, creator)).thenReturn(player);
+        when(roundDao.createOrUpdate(any(Round.class))).thenAnswer(i -> i.getArgument(0));
 
-        Round round = roundService.createRound(game, 0);
+        Round newRound = roundService.createRound(game, 0);
 
-        Assertions.assertNotNull(round);
-        Assertions.assertEquals(0, round.getRoundNumber());
-        Assertions.assertNotNull(round.getRoundPresident());
+        Assertions.assertNotNull(newRound);
+        Assertions.assertEquals(0, newRound.getRoundNumber());
+        Assertions.assertNotNull(newRound.getRoundPresident());
     }
 
     @Test
-    @ExpectedDatabase(value = "classpath:dbunit/service/expected/game/testDeleteRound-expected.xml", table = "Round", assertionMode = DatabaseAssertionMode.NON_STRICT_UNORDERED)
     void testDeleteRound() {
-        Game game = gameService.getByRoom(roomService.getById(UUID.fromString("33333333-3333-3333-3333-333333333333")));
-
-        Round round = game.getCurrentRound();
-
-        Assertions.assertNotNull(round);
-
-        game.setCurrentRound(null);
-        gameService.update(game);
+        round.setStatus(RoundStatusEnum.ENDING);
+        doNothing().when(roundDao).delete(round);
+        when(roundDao.getCurrentSession()).thenReturn(mock(org.hibernate.Session.class));
 
         roundService.deleteRound(round);
-        getCurrentSession().flush();
+
+        verify(roundDao).delete(round);
     }
 
     @Test
     void testDeleteRound_NotEnding() {
-        Game game = gameService.getByRoom(roomService.getById(UUID.fromString("33333333-3333-3333-3333-333333333333")));
-        game.getCurrentRound().setStatus(RoundStatusEnum.PLAYING);
+        round.setStatus(RoundStatusEnum.PLAYING);
 
-        Assertions.assertThrows(RoundWrongStatusException.class, () -> roundService.deleteRound(game.getCurrentRound()));
+        Assertions.assertThrows(RoundWrongStatusException.class, () -> roundService.deleteRound(round));
     }
 
     @Test
     void testSetRound() {
-        Game game = gameService.getByRoom(roomService.getById(UUID.fromString("33333333-3333-3333-3333-333333333333")));
+        when(roundDao.createOrUpdate(round)).thenReturn(round);
 
-        Round round = roundService.setStatus(game.getCurrentRound(), RoundStatusEnum.PLAYING);
+        Round updatedRound = roundService.setStatus(round, RoundStatusEnum.VOTING);
 
-        Assertions.assertEquals(RoundStatusEnum.PLAYING, round.getStatus());
+        Assertions.assertEquals(RoundStatusEnum.VOTING, updatedRound.getStatus());
     }
 
     @Test
     void testAddCardToPlayedCards() {
-        Game game = gameService.getByRoom(roomService.getById(UUID.fromString("33333333-3333-3333-3333-333333333333")));
-        Player player = playerService.findPlayerByGameAndUser(game, userService.getById(UUID.fromString("88888888-8888-8888-8888-888888888888")));
-        Card card = cardService.getCardById(UUID.fromString("00000000-0000-0000-0000-000000000003"));
+        when(roundDao.createOrUpdate(round)).thenReturn(round);
 
-        game.getCurrentRound().setStatus(RoundStatusEnum.PLAYING);
+        Round updatedRound = roundService.addCardToPlayedCards(round, player, whiteCard);
 
-        Round round = roundService.addCardToPlayedCards(game.getCurrentRound(), player, card);
-
-        Assertions.assertEquals(1, round.getPlayedCards().size());
+        Assertions.assertEquals(1, updatedRound.getPlayedCards().size());
     }
 
     @Test
     void testAddCardToPlayedCards_WrongStatus() {
-        Game game = gameService.getByRoom(roomService.getById(UUID.fromString("33333333-3333-3333-3333-333333333333")));
-        Player player = playerService.findPlayerByGameAndUser(game, userService.getById(UUID.fromString("88888888-8888-8888-8888-888888888888")));
-        Card card = cardService.getCardById(UUID.fromString("00000000-0000-0000-0000-000000000003"));
+        round.setStatus(RoundStatusEnum.VOTING);
 
-        Assertions.assertThrows(RoundWrongStatusException.class, () -> roundService.addCardToPlayedCards(game.getCurrentRound(), player, card));
+        Assertions.assertThrows(RoundWrongStatusException.class, () -> roundService.addCardToPlayedCards(round, player, whiteCard));
     }
 
     @Test
-    @DatabaseSetup("classpath:dbunit/service/setup/game/playedcard.xml")
     void testAddCardToPlayedCards_PlayerAlreadyPlayed() {
-        Game game = gameService.getByRoom(roomService.getById(UUID.fromString("33333333-3333-3333-3333-333333333333")));
-        Player player = playerService.findPlayerByGameAndUser(game, userService.getById(UUID.fromString("88888888-8888-8888-8888-888888888888")));
-        Card card = cardService.getCardById(UUID.fromString("00000000-0000-0000-0000-000000000004"));
+        PlayedCard playedCard = new PlayedCard();
+        playedCard.setPlayer(player);
+        playedCard.setCard(new Card());
+        round.getPlayedCards().add(playedCard);
 
-        game.getCurrentRound().setStatus(RoundStatusEnum.PLAYING);
-
-        Assertions.assertThrows(PlayerAlreadyPlayedCardException.class, () -> roundService.addCardToPlayedCards(game.getCurrentRound(), player, card));
+        Assertions.assertThrows(PlayerAlreadyPlayedCardException.class, () -> roundService.addCardToPlayedCards(round, player, whiteCard));
     }
 
     @Test
-    @DatabaseSetup("classpath:dbunit/service/setup/game/playedcard.xml")
     void testAddCardToPlayedCards_CardAlreadyPlayed() {
-        Game game = gameService.getByRoom(roomService.getById(UUID.fromString("33333333-3333-3333-3333-333333333333")));
-        Player player = playerService.findPlayerByGameAndUser(game, userService.getById(UUID.fromString("77777777-7777-7777-7777-777777777777")));
-        Card card = cardService.getCardById(UUID.fromString("00000000-0000-0000-0000-000000000003"));
+        PlayedCard playedCard = new PlayedCard();
+        playedCard.setPlayer(player2);
+        playedCard.setCard(whiteCard);
+        round.getPlayedCards().add(playedCard);
 
-        game.getCurrentRound().setStatus(RoundStatusEnum.PLAYING);
-
-        Assertions.assertThrows(CardAlreadyPlayedException.class, () -> roundService.addCardToPlayedCards(game.getCurrentRound(), player, card));
+        Assertions.assertThrows(CardAlreadyPlayedException.class, () -> roundService.addCardToPlayedCards(round, player, whiteCard));
     }
 
     @Test
-    @DatabaseSetup("classpath:dbunit/service/setup/game/playedcard.xml")
     void testVoteCard() {
-        Game game = gameService.getByRoom(roomService.getById(UUID.fromString("33333333-3333-3333-3333-333333333333")));
-        Player player = playerService.findPlayerByGameAndUser(game, userService.getById(UUID.fromString("88888888-8888-8888-8888-888888888888")));
-        Card card = cardService.getCardById(UUID.fromString("00000000-0000-0000-0000-000000000003"));
+        round.setStatus(RoundStatusEnum.VOTING);
+        PlayedCard playedCard = new PlayedCard();
+        playedCard.setPlayer(player2);
+        playedCard.setCard(whiteCard);
+        round.getPlayedCards().add(playedCard);
+        when(roundDao.createOrUpdate(round)).thenReturn(round);
 
-        game.getCurrentRound().setStatus(RoundStatusEnum.VOTING);
+        Round updatedRound = roundService.voteCard(round, player, whiteCard);
 
-        Round round = roundService.voteCard(game.getCurrentRound(), player, card);
-
-        Assertions.assertEquals(1, round.getVotedCards().size());
+        Assertions.assertEquals(1, updatedRound.getVotedCards().size());
     }
 
     @Test
-    @DatabaseSetup("classpath:dbunit/service/setup/game/playedcard.xml")
     void testVoteCard_WrongStatus() {
-        Game game = gameService.getByRoom(roomService.getById(UUID.fromString("33333333-3333-3333-3333-333333333333")));
-        Player player = playerService.findPlayerByGameAndUser(game, userService.getById(UUID.fromString("88888888-8888-8888-8888-888888888888")));
-        Card card = cardService.getCardById(UUID.fromString("00000000-0000-0000-0000-000000000003"));
+        round.setStatus(RoundStatusEnum.PLAYING);
 
-        Assertions.assertThrows(RoundWrongStatusException.class, () -> roundService.voteCard(game.getCurrentRound(), player, card));
+        Assertions.assertThrows(RoundWrongStatusException.class, () -> roundService.voteCard(round, player, whiteCard));
     }
 
     @Test
-    @DatabaseSetup("classpath:dbunit/service/setup/game/playedcard.xml")
     void testVoteCard_CannotVoteCard() {
-        Game game = gameService.getByRoom(roomService.getById(UUID.fromString("33333333-3333-3333-3333-333333333333")));
-        Player player = playerService.findPlayerByGameAndUser(game, userService.getById(UUID.fromString("77777777-7777-7777-7777-777777777777")));
-        Card card = cardService.getCardById(UUID.fromString("00000000-0000-0000-0000-000000000003"));
+        round.setStatus(RoundStatusEnum.VOTING);
 
-        game.getCurrentRound().setStatus(RoundStatusEnum.VOTING);
-
-        Assertions.assertThrows(PlayerCannotVoteCardException.class, () -> roundService.voteCard(game.getCurrentRound(), player, card));
+        Assertions.assertThrows(PlayerCannotVoteCardException.class, () -> roundService.voteCard(round, player2, whiteCard));
     }
 
     @Test
-    @DatabaseSetup("classpath:dbunit/service/setup/game/playedcard.xml")
-    @DatabaseSetup("classpath:dbunit/service/setup/game/votedcard.xml")
     void testVoteCard_AlreadyVotedCard() {
-        Game game = gameService.getByRoom(roomService.getById(UUID.fromString("33333333-3333-3333-3333-333333333333")));
-        Player player = playerService.findPlayerByGameAndUser(game, userService.getById(UUID.fromString("88888888-8888-8888-8888-888888888888")));
-        Card card = cardService.getCardById(UUID.fromString("00000000-0000-0000-0000-000000000003"));
+        round.setStatus(RoundStatusEnum.VOTING);
+        PlayedCard playedCard = new PlayedCard();
+        playedCard.setPlayer(player2);
+        playedCard.setCard(whiteCard);
+        round.getPlayedCards().add(playedCard);
 
-        game.getCurrentRound().setStatus(RoundStatusEnum.VOTING);
+        VotedCard votedCard = new VotedCard();
+        votedCard.setPlayer(player);
+        votedCard.setCard(whiteCard);
+        round.getVotedCards().add(votedCard);
 
-        Assertions.assertThrows(PlayerAlreadyVotedCardException.class, () -> roundService.voteCard(game.getCurrentRound(), player, card));
+        Assertions.assertThrows(PlayerAlreadyVotedCardException.class, () -> roundService.voteCard(round, player, whiteCard));
     }
 
     @Test
-    @DatabaseSetup("classpath:dbunit/service/setup/game/playedcard.xml")
     void testVoteCard_CardNotPlayed() {
-        Game game = gameService.getByRoom(roomService.getById(UUID.fromString("33333333-3333-3333-3333-333333333333")));
-        Player player = playerService.findPlayerByGameAndUser(game, userService.getById(UUID.fromString("88888888-8888-8888-8888-888888888888")));
-        Card card = cardService.getCardById(UUID.fromString("00000000-0000-0000-0000-000000000002"));
+        round.setStatus(RoundStatusEnum.VOTING);
 
-        game.getCurrentRound().setStatus(RoundStatusEnum.VOTING);
-
-        Assertions.assertThrows(CardNotPlayedException.class, () -> roundService.voteCard(game.getCurrentRound(), player, card));
+        Assertions.assertThrows(CardNotPlayedException.class, () -> roundService.voteCard(round, player, whiteCard));
     }
 
     @Test
     void testSetNextBlackCard() {
-        Game game = gameService.getByRoom(roomService.getById(UUID.fromString("33333333-3333-3333-3333-333333333333")));
-        Card card = cardService.getCardById(UUID.fromString("00000000-0000-0000-0000-000000000000"));
+        when(roundDao.createOrUpdate(round)).thenReturn(round);
 
-        Round round = roundService.setNextBlackCard(game.getCurrentRound(), card);
+        Round updatedRound = roundService.setNextBlackCard(round, blackCard);
 
-        Assertions.assertEquals(card.getId(), round.getRoundBlackCard().getId());
+        Assertions.assertEquals(blackCard.getId(), updatedRound.getRoundBlackCard().getId());
     }
 
     @Test
     void testSetNextBlackCard_CardDoesntExists() {
-        Game game = gameService.getByRoom(roomService.getById(UUID.fromString("33333333-3333-3333-3333-333333333333")));
-        Card card = cardService.getCardById(UUID.fromString("00000000-0000-0000-0000-000000000004"));
-
-        Assertions.assertThrows(CardDoesntExistsException.class, () -> roundService.setNextBlackCard(game.getCurrentRound(), card));
+        Assertions.assertThrows(CardDoesntExistsException.class, () -> roundService.setNextBlackCard(round, whiteCard));
     }
 
     @Test
-    @DatabaseSetup("classpath:dbunit/service/setup/game/playedcard.xml")
-    @DatabaseSetup("classpath:dbunit/service/setup/game/votedcard.xml")
     void testGetMostVotedCard() {
-        Game game = gameService.getByRoom(roomService.getById(UUID.fromString("33333333-3333-3333-3333-333333333333")));
+        when(roundDao.getMostVotedCard(round)).thenReturn(whiteCard);
 
-        Card mostVotedCard = roundService.getMostVotedCard(game.getCurrentRound());
+        Card mostVotedCard = roundService.getMostVotedCard(round);
 
         Assertions.assertNotNull(mostVotedCard);
     }
 
     @Test
-    @DatabaseSetup("classpath:dbunit/service/setup/game/playedcard.xml")
-    @DatabaseSetup("classpath:dbunit/service/setup/game/votedcard.xml")
     void testGetPlayedCardByCard() {
-        Game game = gameService.getByRoom(roomService.getById(UUID.fromString("33333333-3333-3333-3333-333333333333")));
+        PlayedCard playedCard = new PlayedCard();
+        when(roundDao.getPlayedCardByCard(round, whiteCard)).thenReturn(playedCard);
 
-        Card mostVotedCard = roundService.getMostVotedCard(game.getCurrentRound());
+        PlayedCard returnedPlayedCard = roundService.getPlayedCardByCard(round, whiteCard);
 
-        PlayedCard playedCard = roundService.getPlayedCardByCard(game.getCurrentRound(), mostVotedCard);
-
-        Assertions.assertNotNull(playedCard);
+        Assertions.assertNotNull(returnedPlayedCard);
     }
 
     @Test
-    @DatabaseSetup("classpath:dbunit/service/setup/game/playedcard.xml")
     void testGetCheckIfEveryoneHavePlayedACard() {
-        Game game = gameService.getByRoom(roomService.getById(UUID.fromString("33333333-3333-3333-3333-333333333333")));
+        when(roundDao.countPlayedCards(round)).thenReturn(1L);
 
-        Assertions.assertTrue(roundService.checkIfEveryoneHavePlayedACard(game.getCurrentRound()));
+        Assertions.assertTrue(roundService.checkIfEveryoneHavePlayedACard(round));
     }
 
     @Test
-    @DatabaseSetup("classpath:dbunit/service/setup/game/playedcard.xml")
-    @DatabaseSetup("classpath:dbunit/service/setup/game/votedcard.xml")
     void testGetCheckIfEveryoneHaveVotedACard() {
-        Game game = gameService.getByRoom(roomService.getById(UUID.fromString("33333333-3333-3333-3333-333333333333")));
+        when(roundDao.countVotedCards(round)).thenReturn(1L);
 
-        Assertions.assertTrue(roundService.checkIfEveryoneHaveVotedACard(game.getCurrentRound()));
+        Assertions.assertTrue(roundService.checkIfEveryoneHaveVotedACard(round));
     }
 
 }

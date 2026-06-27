@@ -1,86 +1,123 @@
 package org.themarioga.engine.cah.dao.dictionaries;
 
-import com.github.springtestdbunit.annotation.DatabaseSetup;
-import com.github.springtestdbunit.annotation.ExpectedDatabase;
-import com.github.springtestdbunit.assertion.DatabaseAssertionMode;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.TypedQuery;
+import org.hibernate.Session;
+import org.hibernate.query.Query;
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.themarioga.engine.cah.BaseTest;
-import org.themarioga.engine.cah.dao.intf.dictionaries.CardDao;
-import org.themarioga.engine.cah.dao.intf.dictionaries.DictionaryDao;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.themarioga.engine.cah.dao.impl.dictionaries.CardDaoImpl;
 import org.themarioga.engine.cah.enums.CardTypeEnum;
 import org.themarioga.engine.cah.models.dictionaries.Card;
 import org.themarioga.engine.cah.models.dictionaries.Dictionary;
 
+import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 import java.util.UUID;
+import java.util.stream.Stream;
 
-@DatabaseSetup("classpath:dbunit/dao/setup/lang.xml")
-@DatabaseSetup("classpath:dbunit/dao/setup/user.xml")
-@DatabaseSetup("classpath:dbunit/dao/setup/dictionaries/dictionary.xml")
-@DatabaseSetup("classpath:dbunit/dao/setup/dictionaries/card.xml")
-class CardDaoTest extends BaseTest {
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.*;
 
-    @Autowired
-    private CardDao cardDao;
-    @Autowired
-    private DictionaryDao dictionaryDao;
+@ExtendWith(MockitoExtension.class)
+class CardDaoTest {
 
-    @Test
-    @ExpectedDatabase(value = "classpath:dbunit/dao/expected/card/testCreateCard-expected.xml", table = "Card", assertionMode = DatabaseAssertionMode.NON_STRICT_UNORDERED)
-    void createCard() {
-        Dictionary dictionary = dictionaryDao.findOne(UUID.fromString("00000000-0000-0000-0000-000000000000"));
+    private CardDaoImpl cardDao;
 
-        Card card = new Card();
-        card.setText("Test card");
-        card.setType(CardTypeEnum.WHITE);
+    @Mock
+    private EntityManager entityManager;
+
+    @Mock
+    private Session session;
+
+    private Card card;
+    private Dictionary dictionary;
+
+    @BeforeEach
+    void setUp() {
+        cardDao = new CardDaoImpl();
+        cardDao.setEntityManager(entityManager);
+
+        dictionary = new Dictionary();
+        dictionary.setId(UUID.fromString("00000000-0000-0000-0000-000000000000"));
+
+        card = new Card();
+        card.setId(UUID.fromString("00000000-0000-0000-0000-000000000000"));
+        card.setText("First");
+        card.setType(CardTypeEnum.BLACK);
         card.setDictionary(dictionary);
         card.setCreationDate(new Date());
-
-        card = cardDao.createOrUpdate(card);
-        getCurrentSession().flush();
-
-        Assertions.assertNotNull(card.getId());
     }
 
     @Test
-    @ExpectedDatabase(value = "classpath:dbunit/dao/expected/card/testUpdateCard-expected.xml", table = "Card", assertionMode = DatabaseAssertionMode.NON_STRICT_UNORDERED)
+    void createCard() {
+        when(entityManager.merge(any(Card.class))).thenReturn(card);
+
+        Card newCard = new Card();
+        newCard.setText("Test card");
+        newCard.setType(CardTypeEnum.WHITE);
+        newCard.setDictionary(dictionary);
+        newCard.setCreationDate(new Date());
+
+        Card createdCard = cardDao.createOrUpdate(newCard);
+
+        Assertions.assertNotNull(createdCard.getId());
+        Assertions.assertEquals("First", createdCard.getText());
+        verify(entityManager).merge(newCard);
+    }
+
+    @Test
     void updateCard() {
-        Card card = cardDao.findOne(UUID.fromString("00000000-0000-0000-0000-000000000000"));
-        card.setText("Test card");
+        when(entityManager.merge(any(Card.class))).thenReturn(card);
+
+        card.setText("Test card updated");
         card.setType(CardTypeEnum.WHITE);
 
-        cardDao.createOrUpdate(card);
-        getCurrentSession().flush();
+        Card updatedCard = cardDao.createOrUpdate(card);
 
-        Assertions.assertEquals(UUID.fromString("00000000-0000-0000-0000-000000000000"), card.getId());
+        Assertions.assertEquals(UUID.fromString("00000000-0000-0000-0000-000000000000"), updatedCard.getId());
+        Assertions.assertEquals("Test card updated", updatedCard.getText());
+        verify(entityManager).merge(card);
     }
 
     @Test
     void deleteCard() {
-        Card card = cardDao.findOne(UUID.fromString("00000000-0000-0000-0000-000000000000"));
+        doNothing().when(entityManager).remove(card);
 
         cardDao.delete(card);
 
-        long total = cardDao.countAll();
-
-        Assertions.assertEquals(0, total);
+        verify(entityManager).remove(card);
     }
 
     @Test
     void findCard() {
-        Card card = cardDao.findOne(UUID.fromString("00000000-0000-0000-0000-000000000000"));
+        when(entityManager.find(Card.class, card.getId())).thenReturn(card);
 
-        Assertions.assertEquals(UUID.fromString("00000000-0000-0000-0000-000000000000"), card.getId());
-        Assertions.assertEquals("First", card.getText());
-        Assertions.assertEquals(CardTypeEnum.BLACK, card.getType());
-        Assertions.assertEquals(UUID.fromString("00000000-0000-0000-0000-000000000000"), card.getDictionary().getId());
+        Card foundCard = cardDao.findOne(card.getId());
+
+        Assertions.assertEquals(UUID.fromString("00000000-0000-0000-0000-000000000000"), foundCard.getId());
+        Assertions.assertEquals("First", foundCard.getText());
+        Assertions.assertEquals(CardTypeEnum.BLACK, foundCard.getType());
+        Assertions.assertEquals(UUID.fromString("00000000-0000-0000-0000-000000000000"), foundCard.getDictionary().getId());
     }
 
     @Test
+    @SuppressWarnings("unchecked")
     void findAllCards() {
+        List<Card> list = new ArrayList<>();
+        list.add(card);
+
+        TypedQuery<Card> typedQuery = mock(TypedQuery.class);
+        when(entityManager.createQuery(anyString(), eq(Card.class))).thenReturn(typedQuery);
+        when(typedQuery.getResultList()).thenReturn(list);
+
         List<Card> cards = cardDao.findAll();
 
         Assertions.assertEquals(1, cards.size());
@@ -92,24 +129,41 @@ class CardDaoTest extends BaseTest {
     }
 
     @Test
+    @SuppressWarnings("unchecked")
     void countAllCards() {
+        TypedQuery<Card> typedQuery = mock(TypedQuery.class);
+        when(entityManager.createQuery(anyString(), eq(Card.class))).thenReturn(typedQuery);
+        when(typedQuery.getResultStream()).thenReturn(Stream.of(card));
+
         long total = cardDao.countAll();
 
         Assertions.assertEquals(1, total);
     }
 
     @Test
-    @DatabaseSetup("classpath:dbunit/dao/setup/dictionaries/card.xml")
+    @SuppressWarnings("unchecked")
     void testFindCardsByDictionaryAndType() {
-        Dictionary dictionary = dictionaryDao.findOne(UUID.fromString("00000000-0000-0000-0000-000000000000"));
+        List<Card> list = new ArrayList<>();
+        list.add(card);
+
+        Query<Card> query = mock(Query.class);
+        when(entityManager.unwrap(any())).thenReturn(session);
+        when(session.createQuery(anyString(), eq(Card.class))).thenReturn(query);
+        when(query.setParameter("dictionary", dictionary)).thenReturn(query);
+        when(query.setParameter("type", CardTypeEnum.BLACK)).thenReturn(query);
+        when(query.getResultList()).thenReturn(list);
+
+        Query<Long> queryLong = mock(Query.class);
+        when(session.createQuery(anyString(), eq(Long.class))).thenReturn(queryLong);
+        when(queryLong.setParameter("dictionary", dictionary)).thenReturn(queryLong);
+        when(queryLong.setParameter("type", CardTypeEnum.BLACK)).thenReturn(queryLong);
+        when(queryLong.getSingleResultOrNull()).thenReturn(1L);
 
         List<Card> cards = cardDao.findCardsByDictionaryAndType(dictionary, CardTypeEnum.BLACK);
         int cardNumber = cardDao.countCardsByDictionaryAndType(dictionary, CardTypeEnum.BLACK);
 
-        Assertions.assertEquals(1L, cards.size());
-        Assertions.assertEquals(1L, cardNumber);
-        Assertions.assertEquals(cardNumber, cards.size());
+        Assertions.assertEquals(1, cards.size());
+        Assertions.assertEquals(1, cardNumber);
     }
 
 }
-

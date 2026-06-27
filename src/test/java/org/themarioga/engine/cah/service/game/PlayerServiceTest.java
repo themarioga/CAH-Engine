@@ -1,138 +1,179 @@
 package org.themarioga.engine.cah.service.game;
 
-import com.github.springtestdbunit.annotation.DatabaseSetup;
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.themarioga.engine.cah.BaseTest;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.themarioga.engine.cah.dao.intf.game.PlayerDao;
 import org.themarioga.engine.cah.exceptions.player.PlayerCannotPlayCardException;
 import org.themarioga.engine.cah.models.dictionaries.Card;
 import org.themarioga.engine.cah.models.game.Game;
 import org.themarioga.engine.cah.models.game.Player;
-import org.themarioga.engine.cah.services.intf.dictionaries.CardService;
-import org.themarioga.engine.cah.services.intf.game.GameService;
-import org.themarioga.engine.cah.services.intf.game.PlayerService;
+import org.themarioga.engine.cah.models.game.PlayerHandCard;
+import org.themarioga.engine.cah.services.impl.game.PlayerServiceImpl;
 import org.themarioga.engine.commons.exceptions.player.PlayerAlreadyExistsException;
 import org.themarioga.engine.commons.models.User;
-import org.themarioga.engine.commons.services.intf.RoomService;
 import org.themarioga.engine.commons.services.intf.UserService;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 
-@DatabaseSetup("classpath:dbunit/service/setup/lang.xml")
-@DatabaseSetup("classpath:dbunit/service/setup/user.xml")
-@DatabaseSetup("classpath:dbunit/service/setup/room.xml")
-@DatabaseSetup("classpath:dbunit/service/setup/dictionaries/dictionary.xml")
-@DatabaseSetup("classpath:dbunit/service/setup/game/game.xml")
-@DatabaseSetup("classpath:dbunit/service/setup/game/player.xml")
-class PlayerServiceTest extends BaseTest {
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.*;
 
-    @Autowired
-    UserService userService;
-    @Autowired
-    RoomService roomService;
-    @Autowired
-    GameService gameService;
-    @Autowired
-    PlayerService playerService;
-    @Autowired
-    CardService cardService;
+@ExtendWith(MockitoExtension.class)
+class PlayerServiceTest {
+
+    @InjectMocks
+    private PlayerServiceImpl playerService;
+
+    @Mock
+    private PlayerDao playerDao;
+
+    @Mock
+    private UserService userService;
+
+    private Player player;
+    private Game game;
+    private User user;
+    private Card card;
+
+    @BeforeEach
+    void setUp() {
+        game = new Game();
+        game.setId(UUID.fromString("00000000-0000-0000-0000-000000000000"));
+
+        user = new User();
+        user.setId(UUID.fromString("00000000-0000-0000-0000-000000000000"));
+
+        player = new Player();
+        player.setId(UUID.fromString("00000000-0000-0000-0000-000000000000"));
+        player.setGame(game);
+        player.setUser(user);
+        player.setPoints(0);
+
+        card = new Card();
+        card.setId(UUID.fromString("00000000-0000-0000-0000-000000000000"));
+
+        java.util.Date now = new java.util.Date();
+        game.setCreationDate(now);
+        user.setCreationDate(now);
+        player.setCreationDate(now);
+        card.setCreationDate(now);
+    }
 
     @Test
     void testCreate() {
-        Game game = gameService.getByRoom(roomService.getById(UUID.fromString("00000000-0000-0000-0000-000000000000")));
-        User user = userService.getById(UUID.fromString("44444444-4444-4444-4444-444444444444"));
+        when(playerDao.findPlayerByUser(user)).thenReturn(null);
+        when(playerDao.createOrUpdate(any(Player.class))).thenAnswer(i -> {
+            Player p = i.getArgument(0);
+            p.setId(UUID.fromString("11111111-1111-1111-1111-111111111111"));
+            return p;
+        });
 
-        Player player = playerService.create(game, user);
+        Player createdPlayer = playerService.create(game, user);
 
-        Assertions.assertNotNull(player);
+        Assertions.assertNotNull(createdPlayer);
+        Assertions.assertEquals(UUID.fromString("11111111-1111-1111-1111-111111111111"), createdPlayer.getId());
+        Assertions.assertEquals(game, createdPlayer.getGame());
+        Assertions.assertEquals(user, createdPlayer.getUser());
+        verify(playerDao).createOrUpdate(any(Player.class));
     }
 
     @Test
     void testCreate_Duplicated() {
-        Game game = gameService.getByRoom(roomService.getById(UUID.fromString("00000000-0000-0000-0000-000000000000")));
-        User user = userService.getById(UUID.fromString("00000000-0000-0000-0000-000000000000"));
+        when(playerDao.findPlayerByUser(user)).thenReturn(player);
 
         Assertions.assertThrows(PlayerAlreadyExistsException.class, () -> playerService.create(game, user));
     }
 
     @Test
     void testDelete() {
-        playerService.delete(playerService.findByUserId(UUID.fromString("00000000-0000-0000-0000-000000000000")));
-        getCurrentSession().flush();
+        doNothing().when(playerDao).delete(player);
 
-        Assertions.assertNull(playerService.findByUserId(UUID.fromString("00000000-0000-0000-0000-000000000000")));
+        playerService.delete(player);
+
+        verify(playerDao).delete(player);
     }
 
     @Test
-    @DatabaseSetup("classpath:dbunit/service/setup/game/player2.xml")
-    @DatabaseSetup("classpath:dbunit/service/setup/dictionaries/card.xml")
-    @DatabaseSetup("classpath:dbunit/service/setup/game/deckcard.xml")
-    @DatabaseSetup("classpath:dbunit/service/setup/game/round.xml")
     void testInsertWhiteCardsIntoPlayerHand() {
-        Game game = gameService.getByRoom(roomService.getById(UUID.fromString("33333333-3333-3333-3333-333333333333")));
-        Player player = playerService.findByUserId(UUID.fromString("77777777-7777-7777-7777-777777777777"));
-        playerService.insertWhiteCardsIntoPlayerHand(player, game.getWhiteCardsDeck().subList(0, 5));
+        List<Card> cards = new ArrayList<>();
+        cards.add(card);
 
-        Assertions.assertNotNull(player);
-        Assertions.assertEquals(5, player.getHand().size());
+        playerService.insertWhiteCardsIntoPlayerHand(player, cards);
+
+        Assertions.assertEquals(1, player.getHand().size());
+        verify(playerDao).createOrUpdate(player);
     }
 
     @Test
     void testIncrementPoints() {
-        Player player = playerService.findById(UUID.fromString("00000000-0000-0000-0000-000000000000"));
+        when(playerDao.createOrUpdate(player)).thenReturn(player);
 
-        player = playerService.incrementPoints(player);
+        Player updatedPlayer = playerService.incrementPoints(player);
 
-        Assertions.assertNotNull(player);
-        Assertions.assertEquals(1, player.getPoints());
+        Assertions.assertEquals(1, updatedPlayer.getPoints());
     }
 
     @Test
-    @DatabaseSetup("classpath:dbunit/service/setup/dictionaries/card.xml")
-    @DatabaseSetup("classpath:dbunit/service/setup/game/playerhand.xml")
     void testRemoveCardFromHand() {
-        Player player = playerService.findById(UUID.fromString("00000000-0000-0000-0000-000000000000"));
-        Card card = cardService.getCardById(UUID.fromString("00000000-0000-0000-0000-000000000003"));
+        PlayerHandCard playerHandCard = new PlayerHandCard();
+        playerHandCard.setPlayer(player);
+        playerHandCard.setCard(card);
+        player.getHand().add(playerHandCard);
 
-        player = playerService.removeCardFromHand(player, card);
+        when(playerDao.createOrUpdate(player)).thenReturn(player);
 
-        Assertions.assertNotNull(player);
-        Assertions.assertEquals(0, player.getHand().size());
+        Player updatedPlayer = playerService.removeCardFromHand(player, card);
+
+        Assertions.assertEquals(0, updatedPlayer.getHand().size());
     }
 
     @Test
-    @DatabaseSetup("classpath:dbunit/service/setup/dictionaries/card.xml")
     void testRemoveCardFromHand_NonExistentCard() {
-        Player player = playerService.findById(UUID.fromString("00000000-0000-0000-0000-000000000000"));
-        Card card = cardService.getCardById(UUID.fromString("00000000-0000-0000-0000-000000000003"));
-
         Assertions.assertThrows(PlayerCannotPlayCardException.class, () -> playerService.removeCardFromHand(player, card));
     }
 
     @Test
     void testFindPlayerById() {
-        Player player = playerService.findById(UUID.fromString("00000000-0000-0000-0000-000000000000"));
+        when(playerDao.findOne(player.getId())).thenReturn(player);
 
-        Assertions.assertEquals(UUID.fromString("00000000-0000-0000-0000-000000000000"), player.getId());
-        Assertions.assertEquals(UUID.fromString("00000000-0000-0000-0000-000000000000"), player.getGame().getId());
-        Assertions.assertEquals(UUID.fromString("00000000-0000-0000-0000-000000000000"), player.getUser().getId());
+        Player foundPlayer = playerService.findById(player.getId());
+
+        Assertions.assertEquals(player.getId(), foundPlayer.getId());
     }
 
     @Test
     void testFindPlayerByUser() {
-        Player player = playerService.findByUser(userService.getById(UUID.fromString("00000000-0000-0000-0000-000000000000")));
+        when(playerDao.findPlayerByUser(user)).thenReturn(player);
 
-        Assertions.assertEquals(UUID.fromString("00000000-0000-0000-0000-000000000000"), player.getGame().getId());
-        Assertions.assertEquals(UUID.fromString("00000000-0000-0000-0000-000000000000"), player.getUser().getId());
+        Player foundPlayer = playerService.findByUser(user);
+
+        Assertions.assertEquals(player.getId(), foundPlayer.getId());
     }
 
     @Test
     void testFindPlayerByUserId() {
-        Player player = playerService.findByUserId(UUID.fromString("00000000-0000-0000-0000-000000000000"));
+        when(userService.getById(user.getId())).thenReturn(user);
+        when(playerDao.findPlayerByUser(user)).thenReturn(player);
 
-        Assertions.assertEquals(UUID.fromString("00000000-0000-0000-0000-000000000000"), player.getGame().getId());
-        Assertions.assertEquals(UUID.fromString("00000000-0000-0000-0000-000000000000"), player.getUser().getId());
+        Player foundPlayer = playerService.findByUserId(user.getId());
+
+        Assertions.assertEquals(player.getId(), foundPlayer.getId());
+    }
+
+    @Test
+    void testFindPlayerByGameAndUser() {
+        when(playerDao.findPlayerByUserAndGame(user, game)).thenReturn(player);
+
+        Player foundPlayer = playerService.findPlayerByGameAndUser(game, user);
+
+        Assertions.assertEquals(player.getId(), foundPlayer.getId());
     }
 
 }

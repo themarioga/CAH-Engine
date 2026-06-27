@@ -1,327 +1,401 @@
 package org.themarioga.engine.cah.service.dictionaries;
 
-import com.github.springtestdbunit.annotation.DatabaseSetup;
-import com.github.springtestdbunit.annotation.ExpectedDatabase;
-import com.github.springtestdbunit.assertion.DatabaseAssertionMode;
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.themarioga.engine.cah.BaseTest;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.themarioga.engine.cah.config.DictionariesConfig;
+import org.themarioga.engine.cah.dao.intf.dictionaries.DictionaryDao;
 import org.themarioga.engine.cah.exceptions.dictionary.*;
 import org.themarioga.engine.cah.models.dictionaries.Dictionary;
 import org.themarioga.engine.cah.models.dictionaries.DictionaryCollaborator;
-import org.themarioga.engine.cah.services.intf.dictionaries.DictionaryService;
+import org.themarioga.engine.cah.services.impl.dictionaries.DictionaryServiceImpl;
+import org.themarioga.engine.cah.services.intf.dictionaries.CardService;
+import org.themarioga.engine.commons.models.Lang;
 import org.themarioga.engine.commons.models.User;
-import org.themarioga.engine.commons.services.intf.LanguageService;
-import org.themarioga.engine.commons.services.intf.UserService;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
-@DatabaseSetup("classpath:dbunit/service/setup/lang.xml")
-@DatabaseSetup("classpath:dbunit/service/setup/user.xml")
-@DatabaseSetup("classpath:dbunit/service/setup/dictionaries/dictionary.xml")
-@DatabaseSetup("classpath:dbunit/service/setup/dictionaries/card.xml")
-@DatabaseSetup("classpath:dbunit/service/setup/dictionaries/dictionarycollaborators.xml")
-class DictionaryServiceTest extends BaseTest {
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.*;
 
-    @Autowired
-    private UserService userService;
+@ExtendWith(MockitoExtension.class)
+class DictionaryServiceTest {
 
-    @Autowired
-    private DictionaryService dictionaryService;
+    @InjectMocks
+    private DictionaryServiceImpl dictionaryService;
 
-    @Autowired
-    private LanguageService languageService;
+    @Mock
+    private DictionaryDao dictionaryDao;
+
+    @Mock
+    private CardService cardService;
+
+    @Mock
+    private DictionariesConfig dictionariesConfig;
+
+    private User creator;
+    private User otherUser;
+    private Lang lang;
+    private Dictionary dictionary;
+    private DictionaryCollaborator creatorCollaborator;
+
+    @BeforeEach
+    void setUp() {
+        lang = new Lang();
+        lang.setId("es");
+
+        creator = new User();
+        creator.setId(UUID.fromString("00000000-0000-0000-0000-000000000000"));
+        creator.setLang(lang);
+
+        otherUser = new User();
+        otherUser.setId(UUID.fromString("11111111-1111-1111-1111-111111111111"));
+        otherUser.setLang(lang);
+
+        dictionary = new Dictionary();
+        dictionary.setId(UUID.fromString("00000000-0000-0000-0000-000000000000"));
+        dictionary.setName("First");
+        dictionary.setCreator(creator);
+        dictionary.setLang(lang);
+        dictionary.setShared(false);
+        dictionary.setPublished(false);
+
+        creatorCollaborator = new DictionaryCollaborator();
+        creatorCollaborator.setDictionary(dictionary);
+        creatorCollaborator.setUser(creator);
+        creatorCollaborator.setAccepted(true);
+        creatorCollaborator.setCanEdit(true);
+
+        java.util.Date now = new java.util.Date();
+        creator.setCreationDate(now);
+        otherUser.setCreationDate(now);
+        dictionary.setCreationDate(now);
+
+        dictionary.getCollaborators().add(creatorCollaborator);
+    }
 
     @Test
-    @ExpectedDatabase(value = "classpath:dbunit/service/expected/dictionaries/testCreateDictionary-expected.xml", table = "Dictionary", assertionMode = DatabaseAssertionMode.NON_STRICT_UNORDERED)
     void testCreateDictionary() {
-        User creator = userService.getById(UUID.fromString("00000000-0000-0000-0000-000000000000"));
-        Dictionary dictionary = dictionaryService.create("Dictionary 1", creator);
-        getCurrentSession().flush();
+        when(dictionaryDao.countDictionariesByName("Dictionary 1")).thenReturn(0L);
+        when(dictionaryDao.countUnpublishedDictionariesByCreator(creator)).thenReturn(0L);
+        when(dictionariesConfig.getMaxNumberOfUnfinishedDictionaries()).thenReturn(5);
+        when(dictionaryDao.createOrUpdate(any(Dictionary.class))).thenAnswer(i -> {
+            Dictionary d = i.getArgument(0);
+            d.setId(UUID.fromString("11111111-1111-1111-1111-111111111111"));
+            return d;
+        });
 
-        Assertions.assertNotNull(dictionary);
+        Dictionary createdDictionary = dictionaryService.create("Dictionary 1", creator);
+
+        Assertions.assertNotNull(createdDictionary);
+        Assertions.assertEquals("Dictionary 1", createdDictionary.getName());
+        Assertions.assertEquals(creator, createdDictionary.getCreator());
+        verify(dictionaryDao).createOrUpdate(any(Dictionary.class));
     }
 
     @Test
     void testCreateDictionary_NameAlreadyExists() {
-        User creator = userService.getById(UUID.fromString("00000000-0000-0000-0000-000000000000"));
+        when(dictionaryDao.countDictionariesByName("First")).thenReturn(1L);
 
         Assertions.assertThrows(DictionaryAlreadyExistsException.class, () -> dictionaryService.create("First", creator));
     }
 
     @Test
     void testCreateDictionary_TooManyDictionaries() {
-        User creator = userService.getById(UUID.fromString("11111111-1111-1111-1111-111111111111"));
+        when(dictionaryDao.countDictionariesByName("Dictionary 1")).thenReturn(0L);
+        when(dictionaryDao.countUnpublishedDictionariesByCreator(creator)).thenReturn(5L);
+        when(dictionariesConfig.getMaxNumberOfUnfinishedDictionaries()).thenReturn(5);
 
         Assertions.assertThrows(DictionaryAlreadyFilledException.class, () -> dictionaryService.create("Dictionary 1", creator));
     }
 
     @Test
     void testSetName() {
-        Dictionary dictionary = dictionaryService.getDictionaryById(UUID.fromString("00000000-0000-0000-0000-000000000000"));
-        dictionary = dictionaryService.setName(dictionary, "New Name");
+        when(dictionaryDao.countDictionariesByName("New Name")).thenReturn(0L);
+        when(dictionaryDao.createOrUpdate(dictionary)).thenReturn(dictionary);
 
-        Assertions.assertEquals("New Name", dictionary.getName());
+        Dictionary updatedDictionary = dictionaryService.setName(dictionary, "New Name");
+
+        Assertions.assertEquals("New Name", updatedDictionary.getName());
     }
 
     @Test
     void testSetName_NameAlreadyExists() {
-        Dictionary dictionary = dictionaryService.getDictionaryById(UUID.fromString("00000000-0000-0000-0000-000000000000"));
+        when(dictionaryDao.countDictionariesByName("First")).thenReturn(1L);
 
         Assertions.assertThrows(DictionaryAlreadyExistsException.class, () -> dictionaryService.setName(dictionary, "First"));
     }
 
     @Test
     void testSetLanguage() {
-        Dictionary dictionary = dictionaryService.getDictionaryById(UUID.fromString("00000000-0000-0000-0000-000000000000"));
-        dictionary = dictionaryService.setLanguage(dictionary, languageService.getLanguage("en"));
+        Lang newLang = new Lang();
+        newLang.setId("en");
 
-        Assertions.assertEquals("en", dictionary.getLang().getId());
+        when(dictionaryDao.createOrUpdate(dictionary)).thenReturn(dictionary);
+
+        Dictionary updatedDictionary = dictionaryService.setLanguage(dictionary, newLang);
+
+        Assertions.assertEquals("en", updatedDictionary.getLang().getId());
     }
 
     @Test
     void testTogglePublished() {
-        Dictionary dictionary = dictionaryService.getDictionaryById(UUID.fromString("11111111-1111-1111-1111-111111111111"));
-        dictionary = dictionaryService.togglePublished(dictionary);
+        when(cardService.checkDictionaryCanBePublished(dictionary)).thenReturn(true);
+        when(dictionaryDao.createOrUpdate(dictionary)).thenReturn(dictionary);
 
-        Assertions.assertEquals(false, dictionary.getPublished());
+        Dictionary updatedDictionary = dictionaryService.togglePublished(dictionary);
+
+        Assertions.assertEquals(true, updatedDictionary.getPublished());
     }
 
     @Test
     void testTogglePublished_AlreadyShared() {
-        Dictionary dictionary = dictionaryService.getDictionaryById(UUID.fromString("00000000-0000-0000-0000-000000000000"));
+        dictionary.setShared(true);
 
         Assertions.assertThrows(DictionaryAlreadySharedException.class, () -> dictionaryService.togglePublished(dictionary));
     }
 
     @Test
     void testTogglePublished_DictionaryNotCompleted() {
-        Dictionary dictionary = dictionaryService.getDictionaryById(UUID.fromString("22222222-2222-2222-2222-222222222222"));
+        when(cardService.checkDictionaryCanBePublished(dictionary)).thenReturn(false);
 
         Assertions.assertThrows(DictionaryNotCompletedException.class, () -> dictionaryService.togglePublished(dictionary));
     }
 
     @Test
     void testToggleShared() {
-        Dictionary dictionary = dictionaryService.getDictionaryById(UUID.fromString("11111111-1111-1111-1111-111111111111"));
-        dictionary = dictionaryService.toggleShared(dictionary);
+        dictionary.setPublished(true);
+        when(dictionaryDao.createOrUpdate(dictionary)).thenReturn(dictionary);
 
-        Assertions.assertEquals(true, dictionary.getShared());
+        Dictionary updatedDictionary = dictionaryService.toggleShared(dictionary);
+
+        Assertions.assertEquals(true, updatedDictionary.getShared());
     }
 
     @Test
     void testToggleShared_NotPublished() {
-        Dictionary dictionary = dictionaryService.getDictionaryById(UUID.fromString("22222222-2222-2222-2222-222222222222"));
-
         Assertions.assertThrows(DictionaryNotPublishedException.class, () -> dictionaryService.toggleShared(dictionary));
     }
 
     @Test
-    @ExpectedDatabase(value = "classpath:dbunit/service/expected/dictionaries/testDeleteDictionary-expected.xml", table = "Dictionary", assertionMode = DatabaseAssertionMode.NON_STRICT_UNORDERED)
     void testDelete() {
-        Dictionary dictionary = dictionaryService.getDictionaryById(UUID.fromString("22222222-2222-2222-2222-222222222222"));
+        doNothing().when(dictionaryDao).delete(dictionary);
 
         dictionaryService.delete(dictionary);
-        getCurrentSession().flush();
 
-        Assertions.assertNull(dictionaryService.getDictionaryById(UUID.fromString("22222222-2222-2222-2222-222222222222")));
+        verify(dictionaryDao).delete(dictionary);
     }
 
     @Test
     void testDelete_AlreadyShared() {
-        Dictionary dictionary = dictionaryService.getDictionaryById(UUID.fromString("00000000-0000-0000-0000-000000000000"));
+        dictionary.setShared(true);
 
         Assertions.assertThrows(DictionaryAlreadySharedException.class, () -> dictionaryService.delete(dictionary));
     }
 
     @Test
     void testGetDictionaryByUUID() {
-        Dictionary dictionary = dictionaryService.getDictionaryById(UUID.fromString("00000000-0000-0000-0000-000000000000"));
+        when(dictionaryDao.findOne(dictionary.getId())).thenReturn(dictionary);
 
-        Assertions.assertNotNull(dictionary);
-        Assertions.assertEquals("First", dictionary.getName());
+        Dictionary foundDictionary = dictionaryService.getDictionaryById(dictionary.getId());
+
+        Assertions.assertNotNull(foundDictionary);
+        Assertions.assertEquals("First", foundDictionary.getName());
     }
 
     @Test
     void testGetDictionariesByCreator() {
-        User user = userService.getById(UUID.fromString("11111111-1111-1111-1111-111111111111"));
-        List<Dictionary> dictionaryList = dictionaryService.getDictionariesByCreator(user);
+        List<Dictionary> list = new ArrayList<>();
+        list.add(dictionary);
 
-        Assertions.assertEquals(3, dictionaryList.size());
+        when(dictionaryDao.getDictionariesByCreator(creator)).thenReturn(list);
+
+        List<Dictionary> dictionaryList = dictionaryService.getDictionariesByCreator(creator);
+
+        Assertions.assertEquals(1, dictionaryList.size());
     }
 
     @Test
     void testGetDictionariesPaginatedForTable() {
-        User user = userService.getById(UUID.fromString("11111111-1111-1111-1111-111111111111"));
-        List<Dictionary> dictionaryList = dictionaryService.getDictionariesPaginatedForTable(user, 0, 1);
+        List<Dictionary> list = new ArrayList<>();
+        list.add(dictionary);
+
+        when(dictionaryDao.getDictionariesPaginatedForTable(creator, 0, 1)).thenReturn(list);
+
+        List<Dictionary> dictionaryList = dictionaryService.getDictionariesPaginatedForTable(creator, 0, 1);
 
         Assertions.assertEquals(1, dictionaryList.size());
     }
 
     @Test
     void testCountDictionariesPaginatedForTable() {
-        User user = userService.getById(UUID.fromString("11111111-1111-1111-1111-111111111111"));
-        Long nDic = dictionaryService.getDictionaryCountForTable(user);
+        when(dictionaryDao.getDictionaryCountForTable(creator)).thenReturn(1L);
 
-        Assertions.assertEquals(1, nDic);
+        Long nDic = dictionaryService.getDictionaryCountForTable(creator);
+
+        Assertions.assertEquals(1L, nDic);
     }
 
     // //////// COLLABORATORS //////////
 
     @Test
-    @ExpectedDatabase(value = "classpath:dbunit/service/expected/dictionaries/testCreateCollaborator-expected.xml", table = "dictionary_collaborator", assertionMode = DatabaseAssertionMode.NON_STRICT_UNORDERED)
     void testAddCollaborator() {
-        Dictionary dictionary = dictionaryService.getDictionaryById(UUID.fromString("22222222-2222-2222-2222-222222222222"));
-        User user = userService.getById(UUID.fromString("11111111-1111-1111-1111-111111111111"));
+        when(dictionariesConfig.getMaxNumberOfCollaborators()).thenReturn(10);
+        when(dictionaryDao.createOrUpdate(dictionary)).thenReturn(dictionary);
 
-        DictionaryCollaborator dictionaryCollaborator = dictionaryService.addCollaborator(dictionary, user);
-        getCurrentSession().flush();
+        DictionaryCollaborator dictionaryCollaborator = dictionaryService.addCollaborator(dictionary, otherUser);
+
         Assertions.assertNotNull(dictionaryCollaborator);
+        Assertions.assertEquals(otherUser, dictionaryCollaborator.getUser());
+        Assertions.assertEquals(2, dictionary.getCollaborators().size());
     }
 
     @Test
     void testAddCollaborator_MaxCollaboratorsReached() {
-        Dictionary dictionary = dictionaryService.getDictionaryById(UUID.fromString("00000000-0000-0000-0000-000000000000"));
-        User user = userService.getById(UUID.fromString("11111111-1111-1111-1111-111111111111"));
+        when(dictionariesConfig.getMaxNumberOfCollaborators()).thenReturn(1);
 
-        Assertions.assertThrows(DictionaryMaxCollaboratorsReached.class, () -> dictionaryService.addCollaborator(dictionary, user));
+        Assertions.assertThrows(DictionaryMaxCollaboratorsReached.class, () -> dictionaryService.addCollaborator(dictionary, otherUser));
     }
 
     @Test
     void testAddCollaborator_CollaboratorAlreadyExists() {
-        Dictionary dictionary = dictionaryService.getDictionaryById(UUID.fromString("22222222-2222-2222-2222-222222222222"));
-        User user = userService.getById(UUID.fromString("00000000-0000-0000-0000-000000000000"));
+        when(dictionariesConfig.getMaxNumberOfCollaborators()).thenReturn(10);
 
-        Assertions.assertThrows(DictionaryCollaboratorAlreadyExists.class, () -> dictionaryService.addCollaborator(dictionary, user));
+        Assertions.assertThrows(DictionaryCollaboratorAlreadyExists.class, () -> dictionaryService.addCollaborator(dictionary, creator));
     }
 
     @Test
     void testToggleAcceptedCollaborator() {
-        Dictionary dictionary = dictionaryService.getDictionaryById(UUID.fromString("00000000-0000-0000-0000-000000000000"));
-        User user = userService.getById(UUID.fromString("11111111-1111-1111-1111-111111111111"));
+        DictionaryCollaborator collaborator = new DictionaryCollaborator();
+        collaborator.setDictionary(dictionary);
+        collaborator.setUser(otherUser);
+        collaborator.setAccepted(true);
+        dictionary.getCollaborators().add(collaborator);
 
-        DictionaryCollaborator dictionaryCollaborator = dictionaryService.toggleAcceptedCollaborator(dictionary, user);
+        when(dictionaryDao.createOrUpdate(dictionary)).thenReturn(dictionary);
 
-        Assertions.assertEquals(false, dictionaryCollaborator.getAccepted());
+        DictionaryCollaborator updatedCollaborator = dictionaryService.toggleAcceptedCollaborator(dictionary, otherUser);
+
+        Assertions.assertEquals(false, updatedCollaborator.getAccepted());
     }
 
     @Test
     void testToggleAcceptedCollaborator_CreatorCantBeAltered() {
-        Dictionary dictionary = dictionaryService.getDictionaryById(UUID.fromString("00000000-0000-0000-0000-000000000000"));
-        User user = userService.getById(UUID.fromString("00000000-0000-0000-0000-000000000000"));
-
-        Assertions.assertThrows(DictionaryCollaboratorCreatorCantBeAltered.class, () -> dictionaryService.toggleAcceptedCollaborator(dictionary, user));
+        Assertions.assertThrows(DictionaryCollaboratorCreatorCantBeAltered.class, () -> dictionaryService.toggleAcceptedCollaborator(dictionary, creator));
     }
 
     @Test
     void testToggleAcceptedCollaborator_CollaboratorDoesntExists() {
-        Dictionary dictionary = dictionaryService.getDictionaryById(UUID.fromString("00000000-0000-0000-0000-000000000000"));
-        User user = userService.getById(UUID.fromString("33333333-3333-3333-3333-333333333333"));
-
-        Assertions.assertThrows(DictionaryCollaboratorDoesntExists.class, () -> dictionaryService.toggleAcceptedCollaborator(dictionary, user));
+        Assertions.assertThrows(DictionaryCollaboratorDoesntExists.class, () -> dictionaryService.toggleAcceptedCollaborator(dictionary, otherUser));
     }
 
     @Test
     void testToggleCanEditCollaborator() {
-        Dictionary dictionary = dictionaryService.getDictionaryById(UUID.fromString("00000000-0000-0000-0000-000000000000"));
-        User user = userService.getById(UUID.fromString("11111111-1111-1111-1111-111111111111"));
+        DictionaryCollaborator collaborator = new DictionaryCollaborator();
+        collaborator.setDictionary(dictionary);
+        collaborator.setUser(otherUser);
+        collaborator.setAccepted(true);
+        collaborator.setCanEdit(false);
+        dictionary.getCollaborators().add(collaborator);
 
-        DictionaryCollaborator dictionaryCollaborator = dictionaryService.toggleCanEditCollaborator(dictionary, user);
+        when(dictionaryDao.createOrUpdate(dictionary)).thenReturn(dictionary);
 
-        Assertions.assertEquals(false, dictionaryCollaborator.getCanEdit());
+        DictionaryCollaborator updatedCollaborator = dictionaryService.toggleCanEditCollaborator(dictionary, otherUser);
+
+        Assertions.assertEquals(true, updatedCollaborator.getCanEdit());
     }
 
     @Test
     void testToggleCanEditCollaborator_CreatorCantBeAltered() {
-        Dictionary dictionary = dictionaryService.getDictionaryById(UUID.fromString("00000000-0000-0000-0000-000000000000"));
-        User user = userService.getById(UUID.fromString("00000000-0000-0000-0000-000000000000"));
-
-        Assertions.assertThrows(DictionaryCollaboratorCreatorCantBeAltered.class, () -> dictionaryService.toggleCanEditCollaborator(dictionary, user));
+        Assertions.assertThrows(DictionaryCollaboratorCreatorCantBeAltered.class, () -> dictionaryService.toggleCanEditCollaborator(dictionary, creator));
     }
 
     @Test
     void testToggleCanEditCollaborator_CollaboratorDoesntExists() {
-        Dictionary dictionary = dictionaryService.getDictionaryById(UUID.fromString("00000000-0000-0000-0000-000000000000"));
-        User user = userService.getById(UUID.fromString("33333333-3333-3333-3333-333333333333"));
-
-        Assertions.assertThrows(DictionaryCollaboratorDoesntExists.class, () -> dictionaryService.toggleCanEditCollaborator(dictionary, user));
+        Assertions.assertThrows(DictionaryCollaboratorDoesntExists.class, () -> dictionaryService.toggleCanEditCollaborator(dictionary, otherUser));
     }
 
     @Test
     void testToggleCanEditCollaborator_CollaboratorNotAccepted() {
-        Dictionary dictionary = dictionaryService.getDictionaryById(UUID.fromString("11111111-1111-1111-1111-111111111111"));
-        User user = userService.getById(UUID.fromString("11111111-1111-1111-1111-111111111111"));
+        DictionaryCollaborator collaborator = new DictionaryCollaborator();
+        collaborator.setDictionary(dictionary);
+        collaborator.setUser(otherUser);
+        collaborator.setAccepted(false);
+        collaborator.setCanEdit(false);
+        dictionary.getCollaborators().add(collaborator);
 
-        Assertions.assertThrows(DictionaryCollaboratorDoesntExists.class, () -> dictionaryService.toggleCanEditCollaborator(dictionary, user));
+        Assertions.assertThrows(DictionaryCollaboratorDoesntExists.class, () -> dictionaryService.toggleCanEditCollaborator(dictionary, otherUser));
     }
 
     @Test
-    @ExpectedDatabase(value = "classpath:dbunit/service/expected/dictionaries/testDeleteCollaborator-expected.xml", table = "dictionary_collaborator", assertionMode = DatabaseAssertionMode.NON_STRICT_UNORDERED)
     void testRemoveCollaborator() {
-        Dictionary dictionary = dictionaryService.getDictionaryById(UUID.fromString("11111111-1111-1111-1111-111111111111"));
-        User user = userService.getById(UUID.fromString("11111111-1111-1111-1111-111111111111"));
+        DictionaryCollaborator collaborator = new DictionaryCollaborator();
+        collaborator.setDictionary(dictionary);
+        collaborator.setUser(otherUser);
+        collaborator.setAccepted(true);
+        dictionary.getCollaborators().add(collaborator);
 
-        dictionaryService.removeCollaborator(dictionary, user);
-        getCurrentSession().flush();
+        when(dictionaryDao.createOrUpdate(dictionary)).thenReturn(dictionary);
+
+        dictionaryService.removeCollaborator(dictionary, otherUser);
 
         Assertions.assertEquals(1, dictionary.getCollaborators().size());
+        verify(dictionaryDao).createOrUpdate(dictionary);
     }
 
     @Test
     void testRemoveCollaborator_CreatorCantBeAltered() {
-        Dictionary dictionary = dictionaryService.getDictionaryById(UUID.fromString("00000000-0000-0000-0000-000000000000"));
-        User user = userService.getById(UUID.fromString("00000000-0000-0000-0000-000000000000"));
-
-        Assertions.assertThrows(DictionaryCollaboratorCreatorCantBeAltered.class, () -> dictionaryService.removeCollaborator(dictionary, user));
+        Assertions.assertThrows(DictionaryCollaboratorCreatorCantBeAltered.class, () -> dictionaryService.removeCollaborator(dictionary, creator));
     }
 
     @Test
     void testRemoveCollaborator_CollaboratorDoesntExists() {
-        Dictionary dictionary = dictionaryService.getDictionaryById(UUID.fromString("00000000-0000-0000-0000-000000000000"));
-        User user = userService.getById(UUID.fromString("33333333-3333-3333-3333-333333333333"));
-
-        Assertions.assertThrows(DictionaryCollaboratorDoesntExists.class, () -> dictionaryService.removeCollaborator(dictionary, user));
+        Assertions.assertThrows(DictionaryCollaboratorDoesntExists.class, () -> dictionaryService.removeCollaborator(dictionary, otherUser));
     }
 
     @Test
     void testIsCollaborator() {
-        Dictionary dictionary = dictionaryService.getDictionaryById(UUID.fromString("00000000-0000-0000-0000-000000000000"));
-        User user = userService.getById(UUID.fromString("00000000-0000-0000-0000-000000000000"));
+        when(dictionaryDao.isDictionaryCollaborator(dictionary, creator)).thenReturn(true);
 
-        Assertions.assertTrue(dictionaryService.isDictionaryCollaborator(dictionary, user));
+        Assertions.assertTrue(dictionaryService.isDictionaryCollaborator(dictionary, creator));
     }
 
     @Test
     void testIsCollaborator_IsNotCollaborator() {
-        Dictionary dictionary = dictionaryService.getDictionaryById(UUID.fromString("00000000-0000-0000-0000-000000000000"));
-        User user = userService.getById(UUID.fromString("33333333-3333-3333-3333-333333333333"));
+        when(dictionaryDao.isDictionaryCollaborator(dictionary, otherUser)).thenReturn(false);
 
-        Assertions.assertFalse(dictionaryService.isDictionaryCollaborator(dictionary, user));
+        Assertions.assertFalse(dictionaryService.isDictionaryCollaborator(dictionary, otherUser));
     }
 
     @Test
     void testIsEditor() {
-        Dictionary dictionary = dictionaryService.getDictionaryById(UUID.fromString("00000000-0000-0000-0000-000000000000"));
-        User user = userService.getById(UUID.fromString("00000000-0000-0000-0000-000000000000"));
+        when(dictionaryDao.isDictionaryEditor(dictionary, creator)).thenReturn(true);
 
-        Assertions.assertTrue(dictionaryService.isDictionaryEditor(dictionary, user));
+        Assertions.assertTrue(dictionaryService.isDictionaryEditor(dictionary, creator));
     }
 
     @Test
     void testIsEditor_IsNotEditor() {
-        Dictionary dictionary = dictionaryService.getDictionaryById(UUID.fromString("11111111-1111-1111-1111-111111111111"));
-        User user = userService.getById(UUID.fromString("11111111-1111-1111-1111-111111111111"));
+        when(dictionaryDao.isDictionaryEditor(dictionary, otherUser)).thenReturn(false);
 
-        Assertions.assertFalse(dictionaryService.isDictionaryEditor(dictionary, user));
+        Assertions.assertFalse(dictionaryService.isDictionaryEditor(dictionary, otherUser));
     }
 
     @Test
     void testGetDictionariesByCollaborator() {
-        User user = userService.getById(UUID.fromString("11111111-1111-1111-1111-111111111111"));
+        List<Dictionary> list = new ArrayList<>();
+        list.add(dictionary);
 
-        Assertions.assertEquals(1, dictionaryService.getDictionariesByCollaborator(user).size());
+        when(dictionaryDao.getDictionariesByCollaborator(creator)).thenReturn(list);
+
+        Assertions.assertEquals(1, dictionaryService.getDictionariesByCollaborator(creator).size());
     }
 
 }

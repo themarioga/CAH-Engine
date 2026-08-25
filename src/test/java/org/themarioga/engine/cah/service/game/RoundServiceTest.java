@@ -273,11 +273,33 @@ class RoundServiceTest {
 
     @Test
     void testGetMostVotedCard() {
-        when(roundDao.getMostVotedCard(round)).thenReturn(whiteCard);
+        when(roundDao.getMostVotedCards(round)).thenReturn(java.util.List.of(whiteCard));
 
         Card mostVotedCard = roundService.getMostVotedCard(round);
 
-        Assertions.assertNotNull(mostVotedCard);
+        Assertions.assertEquals(whiteCard, mostVotedCard);
+    }
+
+    @Test
+    void testGetMostVotedCard_Tie() {
+        Card whiteCard2 = new Card();
+        whiteCard2.setId(UUID.fromString("22222222-2222-2222-2222-222222222222"));
+        whiteCard2.setType(CardTypeEnum.WHITE);
+
+        when(roundDao.getMostVotedCards(round)).thenReturn(java.util.List.of(whiteCard, whiteCard2));
+
+        Card mostVotedCard = roundService.getMostVotedCard(round);
+
+        Assertions.assertTrue(mostVotedCard == whiteCard || mostVotedCard == whiteCard2);
+    }
+
+    @Test
+    void testGetMostVotedCard_NoVotes() {
+        when(roundDao.getMostVotedCards(round)).thenReturn(java.util.List.of());
+
+        Card mostVotedCard = roundService.getMostVotedCard(round);
+
+        Assertions.assertNull(mostVotedCard);
     }
 
     @Test

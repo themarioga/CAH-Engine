@@ -35,10 +35,13 @@ import org.themarioga.engine.commons.security.SecurityUtils;
 import org.themarioga.engine.commons.services.intf.RoomService;
 import org.themarioga.engine.commons.util.Assert;
 
+import java.security.SecureRandom;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Objects;
+import java.util.Random;
 
 @Service
 public class CAHServiceImpl implements CAHService {
@@ -50,6 +53,8 @@ public class CAHServiceImpl implements CAHService {
     private final PlayerService playerService;
     private final RoundService roundService;
     private final GameConfig gameConfig;
+
+    private final Random random = new SecureRandom();
 
     @Autowired
     public CAHServiceImpl(RoomService roomService, GameService gameService, PlayerService playerService, RoundService roundService, GameConfig gameConfig) {
@@ -407,7 +412,10 @@ public class CAHServiceImpl implements CAHService {
 
         List<Player> players = new ArrayList<>(game.getPlayers());
 
-        players.sort(Comparator.comparing(Player::getPoints).reversed());
+        // On a tie, the player who joined first wins, so the result no longer
+        // depends on the arbitrary iteration order of game.getPlayers()
+        players.sort(Comparator.comparing(Player::getPoints).reversed()
+                .thenComparing(Player::getJoinOrder));
 
         return players.get(0);
     }
@@ -428,7 +436,11 @@ public class CAHServiceImpl implements CAHService {
             if (numberCardsNeedToFillHand < 0 || numberCardsNeedToFillHand > gameConfig.getNumberOfCardsInHand())
                 throw new PlayerCannotDrawCardException();
 
-            List<Card> cardsToTransfer = game.getWhiteCardsDeck().subList(0, numberCardsNeedToFillHand);
+            // Deal a random sample of cards instead of always the first ones in the deck,
+            // since the deck's persisted order is not itself randomized
+            List<Card> shuffledDeck = new ArrayList<>(game.getWhiteCardsDeck());
+            Collections.shuffle(shuffledDeck, random);
+            List<Card> cardsToTransfer = new ArrayList<>(shuffledDeck.subList(0, numberCardsNeedToFillHand));
             playerService.insertWhiteCardsIntoPlayerHand(player, cardsToTransfer);
 
             game.getWhiteCardsDeck().removeAll(cardsToTransfer);

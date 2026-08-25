@@ -26,10 +26,12 @@ import org.themarioga.engine.commons.enums.CommonErrorEnum;
 import org.themarioga.engine.commons.exceptions.ApplicationException;
 import org.themarioga.engine.commons.util.Assert;
 
+import java.security.SecureRandom;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.Date;
 import java.util.List;
+import java.util.Random;
 
 @Service
 public class RoundServiceImpl implements RoundService {
@@ -38,6 +40,8 @@ public class RoundServiceImpl implements RoundService {
 
     private final RoundDao roundDao;
     private final PlayerService playerService;
+
+    private final Random random = new SecureRandom();
 
     @Autowired
     public RoundServiceImpl(RoundDao roundDao, PlayerService playerService) {
@@ -187,7 +191,14 @@ public class RoundServiceImpl implements RoundService {
     public Card getMostVotedCard(Round round) {
         logger.debug("Getting most voted card of the game of the round {}", round);
 
-        return roundDao.getMostVotedCard(round);
+        List<Card> mostVotedCards = roundDao.getMostVotedCards(round);
+
+        if (mostVotedCards.isEmpty())
+            return null;
+
+        // Break ties between equally-voted cards at random instead of relying on
+        // arbitrary database row order
+        return mostVotedCards.get(random.nextInt(mostVotedCards.size()));
     }
 
     @Override
@@ -221,8 +232,11 @@ public class RoundServiceImpl implements RoundService {
     private Card getBlackCardFromGameDeck(Game game) {
         logger.debug("Getting black card from deck to game {}", game);
 
-        Card nextBlackCard = game.getBlackCardsDeck().get(0);
-        game.getBlackCardsDeck().remove(nextBlackCard);
+        // Draw a random card instead of always the first one, since the deck's
+        // persisted order is not itself randomized
+        List<Card> blackCardsDeck = game.getBlackCardsDeck();
+        Card nextBlackCard = blackCardsDeck.get(random.nextInt(blackCardsDeck.size()));
+        blackCardsDeck.remove(nextBlackCard);
 
         return nextBlackCard;
     }

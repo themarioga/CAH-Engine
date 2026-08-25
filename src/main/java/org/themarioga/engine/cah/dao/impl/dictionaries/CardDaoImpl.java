@@ -18,7 +18,7 @@ public class CardDaoImpl extends AbstractHibernateDao<Card> implements CardDao {
 
     @Override
     public boolean checkCardExistsByDictionaryTypeAndText(Dictionary dictionary, CardTypeEnum cardTypeEnum, String text) {
-        return getCurrentSession().createQuery("SELECT count(c) FROM Card c WHERE c.dictionary=:dictionary and c.type=:type and c.text LIKE :text", Long.class).setParameter("dictionary", dictionary).setParameter("type", cardTypeEnum).setParameter("text", text).getSingleResultOrNull() > 0;
+        return getCurrentSession().createQuery("SELECT count(c) FROM Card c WHERE c.dictionary=:dictionary and c.type=:type and c.text = :text", Long.class).setParameter("dictionary", dictionary).setParameter("type", cardTypeEnum).setParameter("text", text).getSingleResultOrNull() > 0;
     }
 
     @Override

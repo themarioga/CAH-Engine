@@ -26,7 +26,11 @@ public enum CAHErrorEnum implements ErrorEnum {
     ROUND_NOT_STARTED(50L, "La ronda no se ha iniciado"),
     ROUND_NOT_ENDING(51L, "La ronda no ha acabado"),
     ROUND_WRONG_STATUS(52L, "Mesa en estado incorrecto"),
-    ROUND_PRESIDENT_CANNOT_PLAY_CARD(53L, "El presidente de la ronda no puede jugar una carta");
+    ROUND_PRESIDENT_CANNOT_PLAY_CARD(53L, "El presidente de la ronda no puede jugar una carta"),
+    DICTIONARY_ALREADY_PUBLISHED(54L, "Diccionario ya publicado"),
+    DICTIONARY_NOT_PUBLISHED(55L, "Diccionario no publicado"),
+    DICTIONARY_MAX_COLLABORATORS_REACHED(56L, "Número máximo de colaboradores alcanzado"),
+    CARD_NOT_PLAYED(57L, "Carta no jugada");
 
     final Long errorCode;
     final String errorDesc;

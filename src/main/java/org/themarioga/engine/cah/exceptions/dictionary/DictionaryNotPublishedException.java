@@ -6,7 +6,7 @@ import org.themarioga.engine.cah.exceptions.CAHApplicationException;
 public class DictionaryNotPublishedException extends CAHApplicationException {
 
     public DictionaryNotPublishedException() {
-        super(CAHErrorEnum.DICTIONARY_NOT_FILLED);
+        super(CAHErrorEnum.DICTIONARY_NOT_PUBLISHED);
     }
 
 }

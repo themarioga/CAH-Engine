@@ -1,8 +1,0 @@
-<?xml version="1.0" encoding="utf-8"?>
-<dataset>
-    <Dictionary NAME="First" SHARED="true" PUBLISHED="true" CREATOR_ID="00000000-0000-0000-0000-000000000000" LANG_ID="es"/>
-    <Dictionary NAME="Second" SHARED="false" PUBLISHED="true" CREATOR_ID="00000000-0000-0000-0000-000000000000" LANG_ID="es"/>
-    <Dictionary NAME="Fourth" SHARED="false" PUBLISHED="false" CREATOR_ID="11111111-1111-1111-1111-111111111111" LANG_ID="es"/>
-    <Dictionary NAME="Fifth" SHARED="false" PUBLISHED="false" CREATOR_ID="11111111-1111-1111-1111-111111111111" LANG_ID="es"/>
-    <Dictionary NAME="Sixth" SHARED="false" PUBLISHED="false" CREATOR_ID="11111111-1111-1111-1111-111111111111" LANG_ID="es"/>
-</dataset>

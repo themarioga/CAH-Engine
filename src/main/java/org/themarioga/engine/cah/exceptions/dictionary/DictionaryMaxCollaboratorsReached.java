@@ -6,7 +6,7 @@ import org.themarioga.engine.cah.exceptions.CAHApplicationException;
 public class DictionaryMaxCollaboratorsReached extends CAHApplicationException {
 
     public DictionaryMaxCollaboratorsReached() {
-        super(CAHErrorEnum.DICTIONARY_ALREADY_FILLED);
+        super(CAHErrorEnum.DICTIONARY_MAX_COLLABORATORS_REACHED);
     }
 
 }

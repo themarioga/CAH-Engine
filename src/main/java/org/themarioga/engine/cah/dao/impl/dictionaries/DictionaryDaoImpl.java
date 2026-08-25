@@ -37,7 +37,7 @@ public class DictionaryDaoImpl extends AbstractHibernateDao<Dictionary> implemen
 
     @Override
     public Long countDictionariesByName(String name) {
-        return getCurrentSession().createQuery("SELECT count(d) FROM Dictionary d WHERE d.name LIKE :name", Long.class).setParameter("name", name).getSingleResult();
+        return getCurrentSession().createQuery("SELECT count(d) FROM Dictionary d WHERE d.name = :name", Long.class).setParameter("name", name).getSingleResult();
     }
 
     @Override

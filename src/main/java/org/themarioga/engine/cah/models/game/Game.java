@@ -13,8 +13,10 @@ import java.util.List;
 @Entity
 public class Game extends org.themarioga.engine.commons.models.Game implements Serializable {
 
+    @Enumerated(EnumType.ORDINAL)
     @Column(nullable = false)
     private VotationModeEnum votationMode;
+    @Enumerated(EnumType.ORDINAL)
     @Column(nullable = false)
     private PunctuationModeEnum punctuationMode;
     @Column(nullable = false)

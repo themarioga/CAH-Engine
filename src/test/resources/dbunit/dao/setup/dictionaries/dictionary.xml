@@ -1,5 +1,0 @@
-<?xml version="1.0" encoding="utf-8"?>
-<!DOCTYPE dataset SYSTEM "src/test/resources/cahschema.dtd">
-<dataset>
-    <Dictionary ID="00000000-0000-0000-0000-000000000000" NAME="First" SHARED="true" PUBLISHED="true" CREATOR_ID="00000000-0000-0000-0000-000000000000" LANG_ID="es" CREATION_DATE="[now]"/>
-</dataset>

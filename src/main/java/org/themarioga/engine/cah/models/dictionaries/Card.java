@@ -7,6 +7,7 @@ import org.themarioga.engine.commons.models.Base;
 @Entity
 public class Card extends Base {
 
+    @Enumerated(EnumType.ORDINAL)
     @Column(length = 1, nullable = false)
     private CardTypeEnum type;
     @Column(length = 256, nullable = false)

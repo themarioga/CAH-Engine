@@ -18,6 +18,7 @@ public class Round extends Base implements Serializable {
 
     @Column(nullable = false)
     private Integer roundNumber;
+    @Enumerated(EnumType.ORDINAL)
     @Column(nullable = false)
     private RoundStatusEnum status;
 

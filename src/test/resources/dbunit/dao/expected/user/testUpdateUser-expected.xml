@@ -1,6 +1,0 @@
-<?xml version="1.0" encoding="utf-8"?>
-<!DOCTYPE dataset SYSTEM "src/test/resources/cahschema.dtd">
-<dataset>
-    <Users ID="0" NAME="Otro nombre" ACTIVE="false" LANG_ID="es"/>
-    <Users ID="1" NAME="Second" ACTIVE="true" LANG_ID="es"/>
-</dataset>

@@ -1,5 +1,0 @@
-<?xml version="1.0" encoding="utf-8"?>
-<!DOCTYPE dataset SYSTEM "src/test/resources/cahschema.dtd">
-<dataset>
-    <Player ID="00000000-0000-0000-0000-000000000000" USER_ID="00000000-0000-0000-0000-000000000000" GAME_ID="00000000-0000-0000-0000-000000000000" JOIN_ORDER="0" POINTS="0" CREATION_DATE="[now]" />
-</dataset>

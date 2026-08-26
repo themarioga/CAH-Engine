@@ -6,7 +6,7 @@ import org.themarioga.engine.cah.models.game.Game;
 import org.themarioga.engine.cah.models.game.Player;
 import org.themarioga.engine.cah.models.game.Round;
 
-public interface GameService extends org.themarioga.engine.commons.services.intf.GameService<Game, Player> {
+public interface GameService extends org.themarioga.commons.engine.services.intf.GameService<Game, Player> {
 
     Game setVotationMode(Game game, VotationModeEnum type);
 

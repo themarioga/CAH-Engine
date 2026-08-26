@@ -6,7 +6,7 @@ import org.themarioga.engine.cah.models.dictionaries.Card;
 
 import java.util.List;
 
-public interface PlayerService extends org.themarioga.engine.commons.services.intf.PlayerService<Player, Game> {
+public interface PlayerService extends org.themarioga.commons.engine.services.intf.PlayerService<Player, Game> {
 
     void insertWhiteCardsIntoPlayerHand(Player player, List<Card> cardsToTransfer);
 

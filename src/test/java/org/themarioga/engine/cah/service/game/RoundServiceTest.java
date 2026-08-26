@@ -22,7 +22,7 @@ import org.themarioga.engine.cah.models.dictionaries.Card;
 import org.themarioga.engine.cah.models.game.*;
 import org.themarioga.engine.cah.services.impl.game.RoundServiceImpl;
 import org.themarioga.engine.cah.services.intf.game.PlayerService;
-import org.themarioga.engine.commons.models.User;
+import org.themarioga.commons.engine.models.User;
 
 import java.util.UUID;
 

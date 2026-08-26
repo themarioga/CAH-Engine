@@ -3,7 +3,7 @@ package org.themarioga.engine.cah.dao.intf.game;
 import org.themarioga.engine.cah.models.dictionaries.Card;
 import org.themarioga.engine.cah.models.game.PlayedCard;
 import org.themarioga.engine.cah.models.game.Round;
-import org.themarioga.engine.commons.dao.InterfaceHibernateDao;
+import org.themarioga.commons.engine.dao.InterfaceHibernateDao;
 
 import java.util.List;
 

@@ -14,9 +14,9 @@ import org.themarioga.engine.cah.models.game.Game;
 import org.themarioga.engine.cah.models.game.Player;
 import org.themarioga.engine.cah.models.game.PlayerHandCard;
 import org.themarioga.engine.cah.services.impl.game.PlayerServiceImpl;
-import org.themarioga.engine.commons.exceptions.player.PlayerAlreadyExistsException;
-import org.themarioga.engine.commons.models.User;
-import org.themarioga.engine.commons.services.intf.UserService;
+import org.themarioga.commons.engine.exceptions.player.PlayerAlreadyExistsException;
+import org.themarioga.commons.engine.models.User;
+import org.themarioga.commons.engine.services.intf.UserService;
 
 import java.util.ArrayList;
 import java.util.List;

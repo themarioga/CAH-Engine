@@ -1,8 +1,8 @@
 package org.themarioga.engine.cah.dao.intf.game;
 
 import org.themarioga.engine.cah.models.game.Player;
-import org.themarioga.engine.commons.dao.InterfaceHibernateDao;
+import org.themarioga.commons.engine.dao.InterfaceHibernateDao;
 
-public interface PlayerDao extends org.themarioga.engine.commons.dao.intf.PlayerDao<Player>, InterfaceHibernateDao<Player> {
+public interface PlayerDao extends org.themarioga.commons.engine.dao.intf.PlayerDao<Player>, InterfaceHibernateDao<Player> {
 
 }

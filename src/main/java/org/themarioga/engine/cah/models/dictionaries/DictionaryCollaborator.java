@@ -1,7 +1,7 @@
 package org.themarioga.engine.cah.models.dictionaries;
 
 import jakarta.persistence.*;
-import org.themarioga.engine.commons.models.User;
+import org.themarioga.commons.engine.models.User;
 
 import java.io.Serializable;
 import java.util.Objects;

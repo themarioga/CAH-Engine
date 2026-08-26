@@ -1,6 +1,6 @@
 package org.themarioga.engine.cah.enums;
 
-import org.themarioga.engine.commons.enums.ErrorEnum;
+import org.themarioga.commons.engine.enums.ErrorEnum;
 
 public enum CAHErrorEnum implements ErrorEnum {
     CARD_NOT_FOUND(30L, "Carta no encontrada"),

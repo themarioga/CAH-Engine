@@ -14,8 +14,8 @@ import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 import javax.sql.DataSource;
 
 @Configuration
-@EntityScan(basePackages = {"org.themarioga.engine"})
-@ComponentScan(basePackages = {"org.themarioga.engine"})
+@EntityScan(basePackages = {"org.themarioga"})
+@ComponentScan(basePackages = {"org.themarioga"})
 @EnableJpaRepositories(basePackages = "org.themarioga.engine.cah.dao")
 public class TestConfiguration {
 

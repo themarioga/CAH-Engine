@@ -1,7 +1,7 @@
 package org.themarioga.engine.cah.services.intf.dictionaries;
 
-import org.themarioga.engine.commons.models.Lang;
-import org.themarioga.engine.commons.models.User;
+import org.themarioga.commons.engine.models.Lang;
+import org.themarioga.commons.engine.models.User;
 import org.themarioga.engine.cah.models.dictionaries.Dictionary;
 import org.themarioga.engine.cah.models.dictionaries.DictionaryCollaborator;
 

@@ -5,7 +5,7 @@ import org.themarioga.engine.cah.dao.intf.game.RoundDao;
 import org.themarioga.engine.cah.models.dictionaries.Card;
 import org.themarioga.engine.cah.models.game.PlayedCard;
 import org.themarioga.engine.cah.models.game.Round;
-import org.themarioga.engine.commons.dao.AbstractHibernateDao;
+import org.themarioga.commons.engine.dao.AbstractHibernateDao;
 
 import java.util.ArrayList;
 import java.util.List;

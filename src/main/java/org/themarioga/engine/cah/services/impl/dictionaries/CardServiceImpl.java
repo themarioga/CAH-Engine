@@ -12,7 +12,7 @@ import org.themarioga.engine.cah.models.dictionaries.Card;
 import org.themarioga.engine.cah.models.dictionaries.Dictionary;
 import org.themarioga.engine.cah.dao.intf.dictionaries.CardDao;
 import org.themarioga.engine.cah.enums.CardTypeEnum;
-import org.themarioga.engine.commons.exceptions.ApplicationException;
+import org.themarioga.commons.engine.exceptions.ApplicationException;
 import org.themarioga.engine.cah.exceptions.card.CardAlreadyExistsException;
 import org.themarioga.engine.cah.exceptions.card.CardTextExcededLength;
 import org.themarioga.engine.cah.services.intf.dictionaries.CardService;

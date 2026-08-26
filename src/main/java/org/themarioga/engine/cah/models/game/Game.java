@@ -11,7 +11,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 @Entity
-public class Game extends org.themarioga.engine.commons.models.Game implements Serializable {
+public class Game extends org.themarioga.commons.engine.models.Game implements Serializable {
 
     @Enumerated(EnumType.ORDINAL)
     @Column(nullable = false)

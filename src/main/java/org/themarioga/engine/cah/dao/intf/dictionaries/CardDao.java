@@ -2,7 +2,7 @@ package org.themarioga.engine.cah.dao.intf.dictionaries;
 
 import org.themarioga.engine.cah.models.dictionaries.Card;
 import org.themarioga.engine.cah.models.dictionaries.Dictionary;
-import org.themarioga.engine.commons.dao.InterfaceHibernateDao;
+import org.themarioga.commons.engine.dao.InterfaceHibernateDao;
 import org.themarioga.engine.cah.enums.CardTypeEnum;
 
 import java.util.List;

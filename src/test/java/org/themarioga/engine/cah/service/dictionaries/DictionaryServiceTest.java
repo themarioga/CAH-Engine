@@ -14,8 +14,8 @@ import org.themarioga.engine.cah.models.dictionaries.Dictionary;
 import org.themarioga.engine.cah.models.dictionaries.DictionaryCollaborator;
 import org.themarioga.engine.cah.services.impl.dictionaries.DictionaryServiceImpl;
 import org.themarioga.engine.cah.services.intf.dictionaries.CardService;
-import org.themarioga.engine.commons.models.Lang;
-import org.themarioga.engine.commons.models.User;
+import org.themarioga.commons.engine.models.Lang;
+import org.themarioga.commons.engine.models.User;
 
 import java.util.ArrayList;
 import java.util.List;

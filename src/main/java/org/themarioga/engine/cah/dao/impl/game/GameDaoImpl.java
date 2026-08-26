@@ -2,10 +2,10 @@ package org.themarioga.engine.cah.dao.impl.game;
 
 import org.springframework.stereotype.Repository;
 import org.themarioga.engine.cah.models.game.Game;
-import org.themarioga.engine.commons.dao.AbstractHibernateDao;
+import org.themarioga.commons.engine.dao.AbstractHibernateDao;
 import org.themarioga.engine.cah.dao.intf.game.GameDao;
-import org.themarioga.engine.commons.models.Room;
-import org.themarioga.engine.commons.models.User;
+import org.themarioga.commons.engine.models.Room;
+import org.themarioga.commons.engine.models.User;
 
 @Repository
 public class GameDaoImpl extends AbstractHibernateDao<Game> implements GameDao {

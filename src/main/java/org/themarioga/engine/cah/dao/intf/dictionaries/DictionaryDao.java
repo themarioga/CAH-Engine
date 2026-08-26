@@ -1,7 +1,7 @@
 package org.themarioga.engine.cah.dao.intf.dictionaries;
 
-import org.themarioga.engine.commons.dao.InterfaceHibernateDao;
-import org.themarioga.engine.commons.models.User;
+import org.themarioga.commons.engine.dao.InterfaceHibernateDao;
+import org.themarioga.commons.engine.models.User;
 import org.themarioga.engine.cah.models.dictionaries.Dictionary;
 
 import java.util.List;

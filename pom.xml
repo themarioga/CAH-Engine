@@ -18,7 +18,7 @@
         <!-- ENGINE DEPENDENCIES -->
         <dependency>
             <groupId>org.themarioga</groupId>
-            <artifactId>engine-commons</artifactId>
+            <artifactId>commons-engine</artifactId>
         </dependency>
     </dependencies>
 </project>

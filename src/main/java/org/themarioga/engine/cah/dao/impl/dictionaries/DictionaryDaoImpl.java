@@ -1,8 +1,8 @@
 package org.themarioga.engine.cah.dao.impl.dictionaries;
 
 import org.springframework.stereotype.Repository;
-import org.themarioga.engine.commons.dao.AbstractHibernateDao;
-import org.themarioga.engine.commons.models.User;
+import org.themarioga.commons.engine.dao.AbstractHibernateDao;
+import org.themarioga.commons.engine.models.User;
 import org.themarioga.engine.cah.dao.intf.dictionaries.DictionaryDao;
 import org.themarioga.engine.cah.models.dictionaries.Dictionary;
 

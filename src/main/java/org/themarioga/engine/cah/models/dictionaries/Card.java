@@ -2,7 +2,7 @@ package org.themarioga.engine.cah.models.dictionaries;
 
 import jakarta.persistence.*;
 import org.themarioga.engine.cah.enums.CardTypeEnum;
-import org.themarioga.engine.commons.models.Base;
+import org.themarioga.commons.engine.models.Base;
 
 @Entity
 public class Card extends Base {

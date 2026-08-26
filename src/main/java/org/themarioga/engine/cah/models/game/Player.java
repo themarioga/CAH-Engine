@@ -7,7 +7,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 @Entity
-public class Player extends org.themarioga.engine.commons.models.Player implements Serializable {
+public class Player extends org.themarioga.commons.engine.models.Player implements Serializable {
 
     @Column(nullable = false)
     private Integer points = 0;

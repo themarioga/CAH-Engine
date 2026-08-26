@@ -17,17 +17,17 @@ import org.themarioga.engine.cah.services.intf.CAHService;
 import org.themarioga.engine.cah.services.intf.dictionaries.CardService;
 import org.themarioga.engine.cah.services.intf.dictionaries.DictionaryService;
 import org.themarioga.engine.cah.services.intf.game.GameService;
-import org.themarioga.engine.commons.enums.GameStatusEnum;
-import org.themarioga.engine.commons.exceptions.game.GameCreatorCannotLeaveException;
-import org.themarioga.engine.commons.exceptions.game.GameDoesntExistsException;
-import org.themarioga.engine.commons.exceptions.game.GameNotStartedException;
-import org.themarioga.engine.commons.exceptions.game.GameOnlyCreatorCanPerformActionException;
-import org.themarioga.engine.commons.exceptions.player.PlayerDoesntExistsException;
-import org.themarioga.engine.commons.models.Room;
-import org.themarioga.engine.commons.security.SecurityUtils;
-import org.themarioga.engine.commons.security.UserRole;
-import org.themarioga.engine.commons.services.intf.RoomService;
-import org.themarioga.engine.commons.services.intf.UserService;
+import org.themarioga.commons.engine.enums.GameStatusEnum;
+import org.themarioga.commons.engine.exceptions.game.GameCreatorCannotLeaveException;
+import org.themarioga.commons.engine.exceptions.game.GameDoesntExistsException;
+import org.themarioga.commons.engine.exceptions.game.GameNotStartedException;
+import org.themarioga.commons.engine.exceptions.game.GameOnlyCreatorCanPerformActionException;
+import org.themarioga.commons.engine.exceptions.player.PlayerDoesntExistsException;
+import org.themarioga.commons.engine.models.Room;
+import org.themarioga.commons.engine.security.SecurityUtils;
+import org.themarioga.commons.engine.security.UserRole;
+import org.themarioga.commons.engine.services.intf.RoomService;
+import org.themarioga.commons.engine.services.intf.UserService;
 
 import java.util.UUID;
 

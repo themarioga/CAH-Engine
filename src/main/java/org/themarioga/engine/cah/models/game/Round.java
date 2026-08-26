@@ -3,7 +3,7 @@ package org.themarioga.engine.cah.models.game;
 import jakarta.persistence.*;
 import org.themarioga.engine.cah.enums.RoundStatusEnum;
 import org.themarioga.engine.cah.models.dictionaries.Card;
-import org.themarioga.engine.commons.models.Base;
+import org.themarioga.commons.engine.models.Base;
 
 import java.io.Serializable;
 import java.util.ArrayList;

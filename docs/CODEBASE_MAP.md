@@ -11,8 +11,8 @@ total_tokens: 104865
 ## System Overview
 
 CAH-Engine is a Java library (Maven module `org.themarioga:cah-engine`, part of the
-`org.themarioga` multi-project family alongside `Engine-Commons`, `SH-Engine`, `Bots`, and
-`TelegramBotUtils`) implementing the **domain model, persistence, and business logic for a
+`org.themarioga` multi-project family alongside `Commons-Engine`, `SH-Engine`, `Bots`, and
+`Commons-Telegram`) implementing the **domain model, persistence, and business logic for a
 multiplayer "Cards Against Humanity" game engine**, driven by (at least) two Telegram bots
 (a game bot and a companion dictionary-management bot). It has no controller/web layer of
 its own — it's consumed by a separate application module. It depends on the sibling
@@ -49,7 +49,7 @@ graph TB
         Tables[(t_game, t_player, t_table*,\nt_dictionary, t_card, t_lang, t_tag, ...)]
     end
 
-    subgraph Commons["Engine-Commons (sibling module)"]
+    subgraph Commons["Commons-Engine (sibling module)"]
         Base[Base / Game / Player / GenericDao]
         RoomUserSvc[RoomService / UserService]
     end
@@ -86,7 +86,7 @@ CAH-Engine/
     ├── main/
     │   ├── java/org/themarioga/engine/cah/
     │   │   ├── config/          # DictionariesConfig, GameConfig — @ConfigurationProperties beans
-    │   │   ├── constants/       # (none in this module — see TelegramBotUtils sibling for comparison)
+    │   │   ├── constants/       # (none in this module — see Commons-Telegram sibling for comparison)
     │   │   ├── dao/
     │   │   │   ├── intf/{dictionaries,game}/    # DAO interfaces
     │   │   │   └── impl/{dictionaries,game}/    # Hibernate/HQL DAO implementations

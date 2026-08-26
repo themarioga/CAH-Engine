@@ -1,9 +1,9 @@
 package org.themarioga.engine.cah.models.dictionaries;
 
 import jakarta.persistence.*;
-import org.themarioga.engine.commons.models.Base;
-import org.themarioga.engine.commons.models.Lang;
-import org.themarioga.engine.commons.models.User;
+import org.themarioga.commons.engine.models.Base;
+import org.themarioga.commons.engine.models.Lang;
+import org.themarioga.commons.engine.models.User;
 
 import java.util.ArrayList;
 import java.util.List;

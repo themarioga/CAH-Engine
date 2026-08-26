@@ -22,9 +22,9 @@ import org.themarioga.engine.cah.models.dictionaries.Card;
 import org.themarioga.engine.cah.models.game.*;
 import org.themarioga.engine.cah.services.intf.game.PlayerService;
 import org.themarioga.engine.cah.services.intf.game.RoundService;
-import org.themarioga.engine.commons.enums.CommonErrorEnum;
-import org.themarioga.engine.commons.exceptions.ApplicationException;
-import org.themarioga.engine.commons.util.Assert;
+import org.themarioga.commons.engine.enums.CommonErrorEnum;
+import org.themarioga.commons.engine.exceptions.ApplicationException;
+import org.themarioga.commons.engine.util.Assert;
 
 import java.security.SecureRandom;
 import java.util.ArrayList;
@@ -243,7 +243,7 @@ public class RoundServiceImpl implements RoundService {
 
     private Player getPresidentForNextRound(Round round) {
         List<Player> players = new ArrayList<>(round.getGame().getPlayers());
-        players.sort(Comparator.comparing(org.themarioga.engine.commons.models.Player::getJoinOrder));
+        players.sort(Comparator.comparing(org.themarioga.commons.engine.models.Player::getJoinOrder));
 
         return players.get(round.getRoundNumber() % players.size());
     }

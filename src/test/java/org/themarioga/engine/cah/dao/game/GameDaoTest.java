@@ -16,9 +16,9 @@ import org.themarioga.engine.cah.enums.VotationModeEnum;
 import org.themarioga.engine.cah.models.dictionaries.Dictionary;
 import org.themarioga.engine.cah.models.game.Game;
 import org.themarioga.engine.cah.models.game.Player;
-import org.themarioga.engine.commons.enums.GameStatusEnum;
-import org.themarioga.engine.commons.models.Room;
-import org.themarioga.engine.commons.models.User;
+import org.themarioga.commons.engine.enums.GameStatusEnum;
+import org.themarioga.commons.engine.models.Room;
+import org.themarioga.commons.engine.models.User;
 
 import java.util.ArrayList;
 import java.util.Date;

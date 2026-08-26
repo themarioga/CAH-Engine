@@ -5,8 +5,8 @@ import org.themarioga.engine.cah.models.dictionaries.Card;
 import org.themarioga.engine.cah.models.dictionaries.Dictionary;
 import org.themarioga.engine.cah.models.game.Game;
 import org.themarioga.engine.cah.models.game.Player;
-import org.themarioga.engine.commons.models.Room;
-import org.themarioga.engine.commons.models.User;
+import org.themarioga.commons.engine.models.Room;
+import org.themarioga.commons.engine.models.User;
 
 public interface CAHService {
 

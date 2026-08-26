@@ -11,7 +11,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.themarioga.engine.cah.dao.impl.game.PlayerDaoImpl;
 import org.themarioga.engine.cah.models.game.Game;
 import org.themarioga.engine.cah.models.game.Player;
-import org.themarioga.engine.commons.models.User;
+import org.themarioga.commons.engine.models.User;
 
 import java.util.ArrayList;
 import java.util.Date;

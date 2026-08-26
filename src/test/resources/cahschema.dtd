@@ -48,6 +48,7 @@
         <!ELEMENT Room EMPTY>
         <!ATTLIST Room
                 ID CDATA #REQUIRED
+                ROOMNAME CDATA #REQUIRED
                 NAME CDATA #REQUIRED
                 ACTIVE CDATA #REQUIRED
                 CREATION_DATE CDATA #REQUIRED
@@ -62,6 +63,7 @@
         <!ELEMENT Users EMPTY>
         <!ATTLIST Users
                 ID CDATA #REQUIRED
+                USERNAME CDATA #REQUIRED
                 NAME CDATA #REQUIRED
                 ACTIVE CDATA #REQUIRED
                 LANG_ID CDATA #REQUIRED

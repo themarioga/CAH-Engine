@@ -12,6 +12,8 @@ public interface CAHService {
 
     Game createGame(String roomName);
 
+    Game createGame(Room room);
+
     Game setVotationMode(Room room, VotationModeEnum type);
 
     Game setMaxNumberOfPlayers(Room room, int maxNumberOfPlayers);

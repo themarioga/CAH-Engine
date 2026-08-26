@@ -23,6 +23,7 @@ import org.themarioga.engine.commons.exceptions.game.GameDoesntExistsException;
 import org.themarioga.engine.commons.exceptions.game.GameNotStartedException;
 import org.themarioga.engine.commons.exceptions.game.GameOnlyCreatorCanPerformActionException;
 import org.themarioga.engine.commons.exceptions.player.PlayerDoesntExistsException;
+import org.themarioga.engine.commons.models.Room;
 import org.themarioga.engine.commons.security.SecurityUtils;
 import org.themarioga.engine.commons.security.UserRole;
 import org.themarioga.engine.commons.services.intf.RoomService;
@@ -65,6 +66,7 @@ class CAHServiceTest extends BaseTest {
 
         Assertions.assertNotNull(game);
         Assertions.assertNotNull(game.getId());
+        Assertions.assertEquals("New Room", game.getRoom().getRoomname());
         Assertions.assertEquals("New Room", game.getRoom().getName());
         Assertions.assertEquals(UUID.fromString("88888888-8888-8888-8888-888888888888"), game.getCreator().getId());
         Assertions.assertEquals(UUID.fromString("88888888-8888-8888-8888-888888888888"), game.getPlayers().get(0).getUser().getId());
@@ -74,12 +76,13 @@ class CAHServiceTest extends BaseTest {
     void testCreateGame_ReactivateRoom() {
         SecurityUtils.setUserDetails(userService.getById(UUID.fromString("88888888-8888-8888-8888-888888888888")), UserRole.USER);
 
-        Game game = cahService.createGame("Third");
+        Game game = cahService.createGame("tg:-100003");
 
         Assertions.assertNotNull(game);
         Assertions.assertNotNull(game.getId());
         Assertions.assertEquals(UUID.fromString("22222222-2222-2222-2222-222222222222"), game.getRoom().getId());
-        Assertions.assertEquals("Third", game.getRoom().getName());
+        Assertions.assertEquals("tg:-100003", game.getRoom().getRoomname());
+        Assertions.assertEquals(true, game.getRoom().getActive());
         Assertions.assertEquals(UUID.fromString("88888888-8888-8888-8888-888888888888"), game.getCreator().getId());
         Assertions.assertEquals(UUID.fromString("88888888-8888-8888-8888-888888888888"), game.getPlayers().get(0).getUser().getId());
     }
@@ -88,7 +91,27 @@ class CAHServiceTest extends BaseTest {
     void testCreateGame_ExistingRoom() {
         SecurityUtils.setUserDetails(userService.getById(UUID.fromString("88888888-8888-8888-8888-888888888888")), UserRole.USER);
 
-        Game game = cahService.createGame("Second");
+        Game game = cahService.createGame("tg:-100002");
+
+        Assertions.assertNotNull(game);
+        Assertions.assertNotNull(game.getId());
+        Assertions.assertEquals(UUID.fromString("11111111-1111-1111-1111-111111111111"), game.getRoom().getId());
+        Assertions.assertEquals("tg:-100002", game.getRoom().getRoomname());
+        Assertions.assertEquals("Second", game.getRoom().getName());
+        Assertions.assertEquals(UUID.fromString("88888888-8888-8888-8888-888888888888"), game.getCreator().getId());
+        Assertions.assertEquals(UUID.fromString("88888888-8888-8888-8888-888888888888"), game.getPlayers().get(0).getUser().getId());
+    }
+
+    /**
+     * Sobrecarga que usan las implementaciones de plataforma (CAH-Telegram): la sala se resuelve
+     * fuera, junto con su tabla de equivalencias, y se le pasa ya construida al motor.
+     */
+    @Test
+    void testCreateGame_WithRoom() {
+        SecurityUtils.setUserDetails(userService.getById(UUID.fromString("88888888-8888-8888-8888-888888888888")), UserRole.USER);
+
+        Room room = roomService.getByRoomname("tg:-100002");
+        Game game = cahService.createGame(room);
 
         Assertions.assertNotNull(game);
         Assertions.assertNotNull(game.getId());

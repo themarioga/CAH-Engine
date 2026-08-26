@@ -73,16 +73,27 @@ public class CAHServiceImpl implements CAHService {
         // Check roomName exists
         Assert.assertNotNull(roomName, CommonErrorEnum.ROOM_NOT_FOUND);
 
-        // Obtenemos el usuario de la sesión y comprobamos que existe
-        User creator = getSessionUser();
-
         // Create or load room
         Room room;
         try {
-            room = roomService.createOrReactivate(roomName);
+            room = roomService.createOrReactivate(roomName, roomName);
         } catch (RoomAlreadyExistsException e) {
-            room = roomService.getByName(roomName);
+            room = roomService.getByRoomname(roomName);
         }
+
+        return createGame(room);
+    }
+
+    @Override
+    @Transactional(propagation = Propagation.REQUIRED, rollbackFor = ApplicationException.class)
+    public Game createGame(Room room) {
+        logger.debug("Creating game for room {}", room);
+
+        // Check room exists
+        Assert.assertNotNull(room, CommonErrorEnum.ROOM_NOT_FOUND);
+
+        // Obtenemos el usuario de la sesión y comprobamos que existe
+        User creator = getSessionUser();
 
         // Create the game
         Game game = gameService.create(room, creator);

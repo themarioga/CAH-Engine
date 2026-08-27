@@ -16,7 +16,7 @@ CAH-Engine is a Java library (Maven module `org.themarioga:cah-engine`, part of 
 multiplayer "Cards Against Humanity" game engine**, driven by (at least) two Telegram bots
 (a game bot and a companion dictionary-management bot). It has no controller/web layer of
 its own — it's consumed by a separate application module. It depends on the sibling
-`engine-commons` library for shared abstractions (`Base`, `Game`, `Player`, generic Hibernate
+`commons-engine` library for shared abstractions (`Base`, `Game`, `Player`, generic Hibernate
 DAO, `ErrorEnum`/`ApplicationException`, `Room`/`User`/`Lang` entities).
 
 ```mermaid
@@ -80,7 +80,7 @@ graph TB
 
 ```
 CAH-Engine/
-├── pom.xml                          # single dep: engine-commons; all else inherited from parent POM
+├── pom.xml                          # single dep: commons-engine; all else inherited from parent POM
 ├── README.md                        # one-line Spanish description
 └── src/
     ├── main/
@@ -100,7 +100,7 @@ CAH-Engine/
     │   │       ├── intf/{dictionaries,game}/    # service interfaces
     │   │       └── impl/{dictionaries,game}/    # CAHServiceImpl (facade) + per-entity impls
     │   └── resources/
-    │       ├── db/migration/{mariadb,h2}/V1/V1.0/{V1.0.0,V1.1.0,V2.0.0}/   # Flyway migrations (mirrored per DB)
+    │       │                                    # (no db/migration here — see note below)
     │       ├── default-formatter-config.xml     # inherited code-formatter config
     │       └── supressed-cve-exceptions.xml     # inherited OWASP suppression list
     └── test/
@@ -111,7 +111,16 @@ CAH-Engine/
         └── resources/dbunit/
             ├── dao/{setup,expected}/        # ⚠ largely unused fixture scaffolding — see Gotchas
             └── service/{setup,expected}/    # setup/ actually used by CAHServiceTest; expected/ unused
+
+docs/legacy-db-migration/                    # the old V1/V2 migrations — NOT on the classpath
 ```
+
+**Why there are no migrations in `src/main/resources`**: a library that ships `db/migration/**`
+imposes its schema on every app that depends on it. These migrations described the pre-refactor
+schema (no `username`/`roomname`, wrong types), so Flyway ran them out of the jar and left the
+application's database corrupt before its own baseline could apply. The schema is now owned by the
+application (`CAH-Telegram/src/main/resources/db/migration/`); what's under `docs/` is kept only as
+the historical record the data-recovery script was written from.
 
 ## Module Guide
 
@@ -138,7 +147,7 @@ CAH-Engine/
 | `dao/intf/game/PlayerDao.java` / `impl/.../PlayerDaoImpl.java` | extends commons `PlayerDao<Player>`; adds `findCardByPlayer`/`findVotesByPlayer` | 117 / 371 |
 | `dao/intf/game/RoundDao.java` / `impl/.../RoundDaoImpl.java` | `getMostVotedCard`, played/voted card counts | 127 / 371 |
 
-All impls extend `AbstractHibernateDao<T>` (from `engine-commons`), use `getCurrentSession().createQuery(...)` (HQL) and Hibernate 6's `getSingleResultOrNull()`.
+All impls extend `AbstractHibernateDao<T>` (from `commons-engine`), use `getCurrentSession().createQuery(...)` (HQL) and Hibernate 6's `getSingleResultOrNull()`.
 
 **Dependents**: `services/impl/*`.
 
@@ -160,7 +169,7 @@ All impls extend `AbstractHibernateDao<T>` (from `engine-commons`), use `getCurr
 
 **Gotcha — mismatched error codes**: several exceptions reuse a `CAHErrorEnum` constant that doesn't match their name/intent: `DictionaryAlreadyPublishedException` and `DictionaryMaxCollaboratorsReached` both reuse `DICTIONARY_ALREADY_FILLED`; `DictionaryNotPublishedException` reuses `DICTIONARY_NOT_FILLED`; `DictionaryCollaboratorCreatorCantBeAltered` reuses `DICTIONARY_COLLAB_NOT_FOUND` instead of the dedicated `DICTIONARY_COLLAB_CREATOR_CANT_BE_ALTERED` (43) code that exists in the enum. `CardNotPlayedException` reuses `CARD_NOT_FOUND`.
 
-**Gotcha — inconsistent base class**: `exceptions/game/*` (`GameAlreadyFilledException`, `GameNotFilledException`) extend commons' `ApplicationException`/`CommonErrorEnum` instead of the local `CAHApplicationException`/`CAHErrorEnum` used everywhere else.
+**Gotcha — inconsistent base class**: `exceptions/game/*` (`GameAlreadyFilledException`, `GameNotFilledException`) extend commons' `ApplicationException`/`CommonErrorEnum` instead of the local `CAHApplicationException`/`CAHErrorEnum` used everywhere else. **Catch `ApplicationException`**, the common root of both branches (`CAHApplicationException extends ApplicationException`, narrowing `getErrorEnum()` to `CAHErrorEnum`). It hasn't always been: while `CAHApplicationException` extended `RuntimeException` directly, the bot's `catch (ApplicationException)` missed every dictionary and card error, so it answered nothing at all to a whole family of mistakes.
 
 `CAHErrorEnum` also reserves `ROUND_NOT_FOUND`/`ROUND_NOT_STARTED`/`ROUND_NOT_ENDING` (49–51) with no dedicated exception subclass found — presumably thrown ad hoc via `new CAHApplicationException(CAHErrorEnum.X)`.
 
@@ -180,7 +189,7 @@ JPA entities (Jakarta Persistence annotations, Hibernate provider), hand-written
 | `models/game/VotedCard.java` | composite-PK (`round`+`player`+`card`) — a cast vote | 339 |
 | `models/game/PlayerHandCard.java` | composite-PK (`player`+`card`) — a card in a player's hand | 263 |
 
-All extend `Base` (`engine-commons`: `@MappedSuperclass`, `UUID id`, `Date creationDate`) except the composite-key join entities.
+All extend `Base` (`commons-engine`: `@MappedSuperclass`, `UUID id`, `Date creationDate`) except the composite-key join entities.
 
 **Entity relationships**:
 ```
@@ -228,8 +237,8 @@ sequenceDiagram
     participant Round as RoundServiceImpl
     participant GDao as GameDaoImpl
 
-    Bot->>CAH: createGame(roomName)
-    CAH->>Room: createOrReactivate(roomName)
+    Bot->>CAH: createGame(room)
+    Note over Bot,CAH: the overload taking a roomname<br/>resolves the Room first, then delegates;<br/>front-ends that already hold one skip that
     CAH->>Game: create(room, creator)
     CAH->>Player: create(game, creator)
     Bot->>CAH: startGame(room)
@@ -276,7 +285,7 @@ sequenceDiagram
 ## Conventions
 
 - **Interface + impl split**, mirrored under `intf`/`impl` for both `dao` and `services`.
-- Entities extend `engine-commons`' `Base`/`Game`/`Player` for shared id/creation-date/status/room/creator/membership plumbing; CAH only adds game-specific fields.
+- Entities extend `commons-engine`' `Base`/`Game`/`Player` for shared id/creation-date/status/room/creator/membership plumbing; CAH only adds game-specific fields.
 - Composite-primary-key join entities (`PlayedCard`, `VotedCard`, `PlayerHandCard`, `DictionaryCollaborator`) use multiple `@Id @ManyToOne` fields (Hibernate convenience, not strict JPA `@IdClass`/`@EmbeddedId`).
 - Exceptions: one thin subclass per business rule, each pinning a `CAHErrorEnum`/`CommonErrorEnum` constant via a no-arg constructor.
 - `t_`-prefixed snake_case DB tables (Flyway, dual-migrated under `mariadb/` and `h2/` trees with identical filenames/content).
@@ -315,7 +324,7 @@ sequenceDiagram
 
 **To change dictionary/card validation rules**: `config/DictionariesConfig.java` (limits) + `services/impl/dictionaries/CardServiceImpl.java` / `DictionaryServiceImpl.java` (enforcement).
 
-**To add a new persisted field**: add to the JPA entity in `models/`, add a Flyway migration under **both** `src/main/resources/db/migration/mariadb/...` and the mirrored `h2/...` path, bump the version folder appropriately.
+**To add a new persisted field**: add it to the JPA entity in `models/`, then add the migration in the **application** that owns the schema (`CAH-Telegram/src/main/resources/db/migration/`, mirrored under `mariadb/` and `h2/`) — this library ships no migrations on purpose. `CAH-Telegram`'s `SchemaBaselineTest` (`ddl-auto=validate`) fails if the two drift apart.
 
 **To add a new error condition**: add a constant to `enums/CAHErrorEnum.java`, then add a matching `CAHApplicationException` subclass under the relevant `exceptions/<area>/` package — double-check you're not accidentally reusing an existing unrelated error code (see Gotchas).
 

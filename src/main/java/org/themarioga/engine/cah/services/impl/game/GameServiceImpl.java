@@ -13,6 +13,7 @@ import org.themarioga.engine.cah.enums.PunctuationModeEnum;
 import org.themarioga.engine.cah.enums.VotationModeEnum;
 import org.themarioga.engine.cah.exceptions.game.GameAlreadyFilledException;
 import org.themarioga.engine.cah.exceptions.game.GameNotFilledException;
+import org.themarioga.engine.cah.exceptions.dictionary.DictionaryDoesntExistsException;
 import org.themarioga.engine.cah.models.dictionaries.Dictionary;
 import org.themarioga.engine.cah.models.game.Game;
 import org.themarioga.engine.cah.models.game.Player;
@@ -29,6 +30,7 @@ import org.themarioga.commons.engine.models.User;
 import org.themarioga.commons.engine.util.Assert;
 
 import java.util.Date;
+import java.util.UUID;
 import java.util.Objects;
 
 @Service
@@ -373,8 +375,29 @@ public class GameServiceImpl implements GameService {
         return gameDao.createOrUpdate(game);
     }
 
+    /**
+     * Diccionario con el que arranca una partida a la que todavía no le han elegido uno.
+     * <p>
+     * Si no está configurado, o apunta a un diccionario que no existe, la partida no se puede
+     * crear. Se dice explícitamente: sin esta comprobación el fallo llegaba como un "Identifier may
+     * not be null" de Hibernate, que no ayuda a saber que falta configuración.
+     */
     private Dictionary getDefaultDictionary() {
-        return dictionaryService.getDictionaryById(gameConfig.getDefaultDictionaryId());
+        UUID defaultDictionaryId = gameConfig.getDefaultDictionaryId();
+        if (defaultDictionaryId == null) {
+            logger.error("No hay diccionario por defecto configurado (cah.game.default-dictionary-id)");
+
+            throw new DictionaryDoesntExistsException();
+        }
+
+        Dictionary dictionary = dictionaryService.getDictionaryById(defaultDictionaryId);
+        if (dictionary == null) {
+            logger.error("El diccionario por defecto {} no existe", defaultDictionaryId);
+
+            throw new DictionaryDoesntExistsException();
+        }
+
+        return dictionary;
     }
 
     @Override

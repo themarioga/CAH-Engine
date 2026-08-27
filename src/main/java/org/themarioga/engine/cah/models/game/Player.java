@@ -21,6 +21,15 @@ public class Player extends org.themarioga.commons.engine.models.Player implemen
     @OneToOne(cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     private VotedCard votedCard;
 
+    /**
+     * La partida a la que pertenece, ya con el tipo de CAH: la clase base la declara con el tipo
+     * genérico y obligaba a castear en cada consumidor.
+     */
+    @Override
+    public Game getGame() {
+        return (Game) super.getGame();
+    }
+
     public Integer getPoints() {
         return points;
     }

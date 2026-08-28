@@ -1,11 +1,11 @@
 package org.themarioga.engine.cah.dao.impl.dictionaries;
 
 import org.springframework.stereotype.Repository;
+import org.themarioga.commons.engine.dao.AbstractHibernateDao;
 import org.themarioga.engine.cah.models.dictionaries.Card;
 import org.themarioga.engine.cah.models.dictionaries.Dictionary;
 import org.themarioga.engine.cah.dao.intf.dictionaries.CardDao;
 import org.themarioga.engine.cah.enums.CardTypeEnum;
-import org.themarioga.engine.commons.dao.AbstractHibernateDao;
 
 import java.util.List;
 

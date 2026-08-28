@@ -425,8 +425,7 @@ public class CAHServiceImpl implements CAHService {
 
         // On a tie, the player who joined first wins, so the result no longer
         // depends on the arbitrary iteration order of game.getPlayers()
-        players.sort(Comparator.comparing(Player::getPoints).reversed()
-                .thenComparing(Player::getJoinOrder));
+        players.sort(Comparator.comparing(Player::getPoints).reversed().thenComparing(Player::getJoinOrder));
 
         return players.get(0);
     }

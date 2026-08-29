@@ -31,13 +31,10 @@ import org.themarioga.commons.engine.services.intf.UserService;
 
 import java.util.UUID;
 
-@DatabaseSetup("classpath:dbunit/service/setup/lang.xml")
-@DatabaseSetup("classpath:dbunit/service/setup/user.xml")
-@DatabaseSetup("classpath:dbunit/service/setup/room.xml")
-@DatabaseSetup("classpath:dbunit/service/setup/dictionaries/dictionary.xml")
-@DatabaseSetup("classpath:dbunit/service/setup/dictionaries/dictionarycollaborators.xml")
-@DatabaseSetup("classpath:dbunit/service/setup/dictionaries/card.xml")
-@DatabaseSetup("classpath:dbunit/service/setup/cah.xml")
+// Una sola anotación con todos los ficheros, no una por fichero: cada @DatabaseSetup hace un
+// CLEAN_INSERT de todas las tablas que declara su DTD —no solo de las que trae el fichero—, así que
+// repetir la anotación hace que cada fichero borre lo que insertó el anterior.
+@DatabaseSetup({"classpath:dbunit/service/setup/lang.xml", "classpath:dbunit/service/setup/user.xml", "classpath:dbunit/service/setup/room.xml", "classpath:dbunit/service/setup/dictionaries/dictionary.xml", "classpath:dbunit/service/setup/dictionaries/dictionarycollaborators.xml", "classpath:dbunit/service/setup/dictionaries/card.xml", "classpath:dbunit/service/setup/cah.xml"})
 class CAHServiceTest extends BaseTest {
 
     @Autowired

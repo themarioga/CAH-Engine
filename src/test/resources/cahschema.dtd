@@ -1,12 +1,16 @@
+<!-- El orden de este elemento manda: DBUnit toma del DTD la lista de tablas de cada
+     dataset y las inserta en este orden (y las borra en el inverso), así que tiene que ser
+     un orden válido para las claves ajenas: primero lo referenciado, después lo que
+     referencia. Con el orden anterior, Game se insertaba antes que Users. -->
 <!ELEMENT dataset (
-        Game*,
         Lang*,
-        Player*,
-        Room*,
         Tag*,
+        Room*,
         Users*,
         Dictionary*,
         Card*,
+        Game*,
+        Player*,
         Round*,
         Game_black_cards_deck*,
         Game_white_cards_deck*,

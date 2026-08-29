@@ -505,7 +505,15 @@ public class CAHServiceImpl implements CAHService {
         return game;
     }
 
+    /**
+     * Solo el creador manda sobre su partida... salvo quien administra el bot, que tiene comandos
+     * para borrar la partida de otro y para borrarlas todas. Sin esta salida esos comandos no
+     * podrían existir: la comprobación del creador los rechazaría uno por uno, y en el caso de
+     * borrarlas todas en silencio, porque el bucle registra el error y sigue con la siguiente.
+     */
     private void checkSessionUserIsCreator(Game game) {
+        if (SecurityUtils.isAdmin()) return;
+
         // Obtenemos el usuario de la sesión y comprobamos que existe
         User creator = getSessionUser();
 

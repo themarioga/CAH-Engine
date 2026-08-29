@@ -239,6 +239,22 @@ class CAHServiceTest extends BaseTest {
         Assertions.assertThrows(GameOnlyCreatorCanPerformActionException.class, () -> cahService.deleteGameByCreator(roomService.getById(UUID.fromString("00000000-0000-0000-0000-000000000000"))));
     }
 
+    /**
+     * Quien administra el bot tiene comandos para borrar la partida de otro y para borrarlas todas.
+     * Si la comprobación del creador no le dejara pasar, esos comandos no podrían existir: rechazaban
+     * partida por partida, y el de borrarlas todas además en silencio, porque su bucle registra el
+     * error y sigue con la siguiente.
+     */
+    @Test
+    void testDeleteGameByCreator_AnAdminCanDeleteSomeoneElsesGame() {
+        SecurityUtils.setUserDetails(userService.getById(UUID.fromString("11111111-1111-1111-1111-111111111111")), UserRole.ADMIN);
+
+        Game game = cahService.deleteGameByCreator(roomService.getById(UUID.fromString("00000000-0000-0000-0000-000000000000")));
+
+        Assertions.assertNotNull(game);
+        Assertions.assertNull(gameService.getByRoom(roomService.getById(UUID.fromString("00000000-0000-0000-0000-000000000000"))));
+    }
+
     @Test
     void testAddPlayer() {
         cahService.setMaxNumberOfPlayers(roomService.getById(UUID.fromString("00000000-0000-0000-0000-000000000000")), 4);
